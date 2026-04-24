@@ -34,3 +34,8 @@ run {
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
+dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}

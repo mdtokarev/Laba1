@@ -1,7 +1,5 @@
 package domain;
 
-import domain.Experiment;
-import domain.Run;
 import org.junit.jupiter.api.Test;
 import validation.ValidationException;
 

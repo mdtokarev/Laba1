@@ -1,6 +1,5 @@
 package domain;
 
-import domain.Experiment;
 import org.junit.jupiter.api.Test;
 import validation.ValidationException;
 import static org.junit.jupiter.api.Assertions.*;

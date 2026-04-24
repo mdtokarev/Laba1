@@ -17,20 +17,27 @@ public final class Run {
     private final Instant createdAt;
     private Instant updatedAt;
 
-    public Run(long id, long experimentId, String name, String operatorName) {
-        this.createdAt = Instant.now();
-        this.updatedAt = this.createdAt;
 
+    public Run(long id, long experimentId, String name, String operatorName) {
+        this(id, experimentId, name, operatorName, Instant.now(), Instant.now());
+    }
+
+
+    private Run(long id, long experimentId, String name, String operatorName, Instant createdAt, Instant updatedAt) {
         validateId(id);
         validateExperimentId(experimentId);
         validateName(name);
         validateOperatorName(operatorName);
+        validateTimestamps(createdAt, updatedAt);
 
         this.id = id;
         this.experimentId = experimentId;
         this.name = name;
         this.operatorName = operatorName;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
+
 
     private static void validateId(long id) {
         if (id <= 0)
@@ -55,6 +62,7 @@ public final class Run {
         if (operatorName.length() > 64)
             throw new ValidationException("Operator name too long");
     }
+
 
     public void setName(String name) {
         validateName(name);
@@ -97,5 +105,23 @@ public final class Run {
 
     public Instant getUpdatedAt() {
         return updatedAt;}
+
+    // 3 ЭТАП: JSON
+    //Метод для востановления объекта из JSON
+    public static Run restore(long id, long experimentId, String name, String operatorName, Instant createdAt, Instant updatedAt) {
+        return new Run(id, experimentId, name, operatorName, createdAt, updatedAt);
+    }
+
+    //  3 ЭТАП: JSON
+    //Проверка коректонсти времени
+    private static void validateTimestamps(Instant createdAt, Instant updatedAt) {
+        if (createdAt == null)
+            throw new ValidationException("Run createdAt can't be null");
+        if (updatedAt == null)
+            throw new ValidationException("Run updatedAt can't be null");
+        if (updatedAt.isBefore(createdAt)) {
+            throw new ValidationException("Run updatedAt can't be before createdAt");
+        }
+    }
 }
 

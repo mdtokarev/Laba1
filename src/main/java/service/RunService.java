@@ -2,16 +2,15 @@ package service;
 
 import domain.Run;
 import validation.ValidationException;
-import java.util.Collection;
-import java.util.List;
-import java.util.TreeMap;
+
+import java.util.*;
 
 public class RunService {
-//    Ключ - id прогона
+    //    Ключ - id прогона
     private final TreeMap<Long, Run> runs = new TreeMap<>();
-//    Создаём для проверки того, что прогон создается только для существующего эксперимента
+    //    Создаём для проверки того, что прогон создается только для существующего эксперимента
     private final ExperimentService experimentService;
-//    Локальный счётчик ID, генерация происходит в сервисе
+    //    Локальный счётчик ID, генерация происходит в сервисе
     private long nextId = 1;
 
     public RunService(ExperimentService experimentService) {
@@ -68,5 +67,31 @@ public class RunService {
         return runs.values().stream()
                 .filter(run -> run.getExperimentId() == experimentId)
                 .toList();
+    }
+    // 3 ЭТАП: JSON
+    // Возвращаем копию коллекции для сохранения
+    public List<Run> snapshot() {
+        return new ArrayList<>(runs.values());
+    }
+
+    // 3 ЭТАП: JSON
+    // Метод загружает восстановленные объекты и обновляет nextId
+    public void loadRestored(List<Run> restoredRuns) {
+        Map<Long, Run> loadedRuns = new TreeMap<>();//Создаем временное хранилище куда будем складывать загруженные  прогоны
+        long maxId = 0;
+
+        for (Run run : restoredRuns) {//Проходим по всем прогонам и проверяем что ссылаемся на существующий эксперемент
+            experimentService.getById(run.getExperimentId());
+
+            if (loadedRuns.put(run.getId(), run) != null) {//Если ID дублируется ошибка
+                throw new ValidationException("Duplicate run id: " + run.getId());
+            }
+
+            maxId = Math.max(maxId, run.getId());//Обновляем max ID
+        }
+//Очищаем коллецию сервиса и загружаем новые данные с правильным ID
+        runs.clear();
+        runs.putAll(loadedRuns);
+        nextId = maxId + 1;
     }
 }

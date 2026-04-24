@@ -1,9 +1,5 @@
 package domain;
 
-import domain.Experiment;
-import domain.MeasurementParam;
-import domain.Run;
-import domain.RunResult;
 import org.junit.jupiter.api.Test;
 import validation.ValidationException;
 

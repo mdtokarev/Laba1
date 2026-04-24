@@ -2,16 +2,16 @@ package service;
 
 import domain.Experiment;
 import validation.ValidationException;
-import java.util.Collection;
-import java.util.List;
-import java.util.TreeMap;
+
+import java.util.*;
 
 public class ExperimentService {
 
-//    Хранилище экспериментов - ключ = id, значение = сам объект
+    //    Хранилище экспериментов - ключ = id, значение = сам объект
     private final TreeMap<Long, Experiment> experiments = new TreeMap<>();
-//    Счётчик id - ответственность сервиса, хранится в нём
+    //    Счётчик id - ответственность сервиса, хранится в нём
     private long nextId = 1;
+
     private long generateNextId() {
         return nextId++;
     }
@@ -38,6 +38,10 @@ public class ExperimentService {
         experiment.update(name, description, ownerUsername);
         return experiment;
     }
+    //Копия эксперементов
+    public Collection<Experiment> list() {
+        return List.copyOf(experiments.values());
+    }
 
     public Experiment getById(long id) {
         Experiment exp = experiments.get(id);
@@ -47,9 +51,30 @@ public class ExperimentService {
         }
         return exp;
     }
-
-//    Возвращаем копию значений, чтобы внешний код не работал с внутренней коллекцией напрямую
-    public Collection<Experiment> list() {
-        return List.copyOf(experiments.values());
+    // 3 ЭТАП: JSON
+    // Возвращаем копию коллекции для сохранения
+    public List<Experiment> snapshot() {
+        return new ArrayList<>(experiments.values());
     }
+    // 3 ЭТАП: JSON
+    // Метод загружает восстановленные объекты и обновляет nextId
+    public void loadRestored(List<Experiment> restoredExperiments) {
+        Map<Long, Experiment> loadedExperiments = new TreeMap<>();//Создаем временное хранилище куда будем складывать загруженные эксперементы
+        long maxId = 0;
+
+        for (Experiment experiment : restoredExperiments) {//Проходим по всем эксперементам проверяем что ID не повторяются, если что выбрасываем ошибку
+            if (loadedExperiments.put(experiment.getId(), experiment) != null) {
+                throw new ValidationException("Duplicate experiment id: " + experiment.getId());
+            }
+            maxId = Math.max(maxId, experiment.getId());//Обновляем max ID
+        }
+//Очищаем коллецию сервиса и загружаем новые данные с правильным ID
+        experiments.clear();
+        experiments.putAll(loadedExperiments);
+        nextId = maxId + 1;
+    }
+
 }
+
+
+

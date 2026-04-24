@@ -4,11 +4,13 @@ import domain.Experiment;
 import domain.MeasurementParam;
 import domain.Run;
 import domain.RunResult;
+import service.DataManager;
 import service.ExperimentService;
 import service.RunResultService;
 import service.RunService;
 import validation.ValidationException;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.*;
@@ -16,9 +18,16 @@ import java.util.*;
 public class CliRunner {
     private final Scanner scanner;
     private final PrintStream out;
+
     private final ExperimentService experimentService;
     private final RunService runService;
     private final RunResultService runResultService;
+
+    //  3 ЭТАП: JSON
+    // DataManager отвечает за сохранение и загрузку всех коллекций
+    private final DataManager dataManager;
+    private String currentFilePath;
+
     private boolean running;
 
     public CliRunner() {
@@ -26,11 +35,32 @@ public class CliRunner {
     }
 
     public CliRunner(InputStream inputStream, PrintStream out) {
-        this.out = out;
+        this(inputStream, out, null);
+    }
+
+    public CliRunner(InputStream inputStream, PrintStream out, String initialFilePath) {
         this.scanner = new Scanner(inputStream);
+        this.out = out;
+
         this.experimentService = new ExperimentService();
         this.runService = new RunService(experimentService);
         this.runResultService = new RunResultService(runService);
+
+        // ===== 3 ЭТАП: JSON =====
+        this.dataManager = new DataManager(experimentService, runService, runResultService);
+        this.currentFilePath = initialFilePath;
+
+        // 3 ЭТАП: JSON
+        // Если путь передали при запуске, программа пробует загрузить файл сразу
+        if (initialFilePath != null && !initialFilePath.isBlank()) {
+            try {
+                dataManager.loadFromFile(initialFilePath);
+                out.println("Data loaded from " + initialFilePath);
+            } catch (IOException | ValidationException e) {
+                out.println("Warning: could not load initial file: " + e.getMessage());
+                out.println("Starting with empty collections.");
+            }
+        }
     }
 
     public static void run() {
@@ -64,6 +94,9 @@ public class CliRunner {
             switch (parsedCommand.name()) {
 //                Перебираем команды и вызываем соответствующий метод
                 case "help" -> printHelp();
+                // 3 ЭТАП: JSON
+                case "save" -> handleSave(parsedCommand);
+                case "load" -> handleLoad(parsedCommand);
                 case "exit" -> handleExit();
                 case "exp_add" -> handleExperimentAdd(parsedCommand);
                 case "exp_list" -> handleExperimentList(parsedCommand);
@@ -84,7 +117,7 @@ public class CliRunner {
         }
     }
 
-//    Реализация того, что CLI будет отличать ввод самой команды от передаваемых ей аргументов
+    //    Реализация того, что CLI будет отличать ввод самой команды от передаваемых ей аргументов
     private ParsedCommand parseCommand(String line) {
 
 //        Строка, введённая пользователем (line) разделится по любому пробельному символу
@@ -121,6 +154,9 @@ public class CliRunner {
         out.println("res_add <runId> - add a result for run");
         out.println("res_list <runId> [--param PARAM] - show results for run");
         out.println("exp_summary <id> - show summary for experiment");
+        // 3 ЭТАП: JSON
+        out.println("save <path> - save all data to JSON file");
+        out.println("load <path> - load data from JSON file");
         out.println("exit - stop the program");
     }
 
@@ -130,7 +166,8 @@ public class CliRunner {
         out.println("CLI stopped.");
     }
 
-//    Обеспечиваем вывод команды без ошибок, так как ее запуск происходит без ввода аргументов.
+
+    //    Обеспечиваем вывод команды без ошибок, так как ее запуск происходит без ввода аргументов.
 //    Кидает исключение, если введём команду с каким-то аргументом (типа exp_add test)
     private void guaranteeNoArguments(ParsedCommand parsedCommand, String commandName) {
         if (!parsedCommand.arguments().isEmpty()) {
@@ -173,7 +210,7 @@ public class CliRunner {
         return value.isBlank() ? null : value;
     }
 
-//    Команда exp_add - добавить эксперимент
+    //    Команда exp_add - добавить эксперимент
     private void handleExperimentAdd(ParsedCommand parsedCommand) {
 
 //        Проверяем что команда вызывается без аргументов
@@ -203,7 +240,7 @@ public class CliRunner {
                 + " | description - " + description;
     }
 
-//    Команда exp_list - показать список добавленных экспериментов
+    //    Команда exp_list - показать список добавленных экспериментов
     private void handleExperimentList(ParsedCommand parsedCommand) {
 
 //        Проверяем, что команда вызвана без аргументов
@@ -250,7 +287,7 @@ public class CliRunner {
         return value == null ? "-" : value;
     }
 
-//    Команда exp_show - показать информацию по одному эксперименту
+    //    Команда exp_show - показать информацию по одному эксперименту
     private void handleExperimentShow(ParsedCommand parsedCommand) {
 
 //        Вызывает метод parse..(), чтобы достать и валидировать ID
@@ -320,7 +357,7 @@ public class CliRunner {
         out.println("Experiment updated.");
     }
 
-//    Команда run_add - добавить прогон эксперимента (интерактивно)
+    //    Команда run_add - добавить прогон эксперимента (интерактивно)
     private void handleRunAdd(ParsedCommand parsedCommand) {
 //         Получение и проверка experimentId через парсер
         long experimentId = parseRequiredLongArgument(parsedCommand, "run_add", "experiment id");
@@ -335,7 +372,7 @@ public class CliRunner {
         out.println("Run created with id " + run.getId());
     }
 
-//    Форматированный вывод списка прогонов
+    //    Форматированный вывод списка прогонов
     private String formatRunLine(Run run) {
         return run.getId()
                 + " | "
@@ -343,7 +380,7 @@ public class CliRunner {
                 + " | operator - " + run.getOperatorName();
     }
 
-//    Команда run_list - показать список прогонов
+    //    Команда run_list - показать список прогонов
     private void handleRunList(ParsedCommand parsedCommand) {
 //        Через парсер берет experimentId, получает эксперимент и его прогоны через сервисы
         long experimentId = parseRequiredLongArgument(parsedCommand, "run_list", "experiment id");
@@ -363,7 +400,7 @@ public class CliRunner {
         }
     }
 
-//    Команда run_show - показать информацию по одному run
+    //    Команда run_show - показать информацию по одному run
     private void handleRunShow(ParsedCommand parsedCommand) {
 
 //        Через парсер достаёт и валидирует id
@@ -411,7 +448,7 @@ public class CliRunner {
         }
     }
 
-//    Команда res_add - добавить результат прогона
+    //    Команда res_add - добавить результат прогона
     private void handleResultAdd(ParsedCommand parsedCommand) {
 //        Через парсер берёт id прогона
         long runId = parseRequiredLongArgument(parsedCommand, "res_add", "run id");
@@ -470,7 +507,7 @@ public class CliRunner {
         throw new ValidationException(label + " must be one of: pH, Temperature, Concentration.");
     }
 
-//    Форматированный вывод списка результатов
+    //    Форматированный вывод списка результатов
     private String formatResultLine(RunResult result) {
         return result.getId()
                 + " | "
@@ -480,7 +517,7 @@ public class CliRunner {
                 + " | comment - " + formatNullableValue(result.getComment());
     }
 
-//    Команда res_list - показать список результатов
+    //    Команда res_list - показать список результатов
     private void handleResultList(ParsedCommand parsedCommand) {
 //        Через парсер берёт runId и param, находит run
         ResultListRequest request = parseResultListRequest(parsedCommand);
@@ -577,6 +614,46 @@ public class CliRunner {
     }
 
     private record ParsedCommand(String name, String arguments) {
+    }
+
+    // 3 ЭТАП: JSON
+    //Метод сохранение данных в JSON, если что то не так выбрасываем ошибку
+    private void handleSave(ParsedCommand command) {
+        String path = extractSingleArgument(command, "save");
+
+        try {
+            dataManager.saveToFile(path);
+            currentFilePath = path;
+            out.println("Data saved to " + path);
+        } catch (IOException e) {
+            throw new ValidationException("Failed to save file: " + e.getMessage());
+        }
+    }
+
+    // ===== 3 ЭТАП: JSON =====
+    //Метод для сохраннения данных из JSON, если что то не так выбрасываем ошибку
+    private void handleLoad(ParsedCommand command) {
+        String path = extractSingleArgument(command, "load");
+
+        try {
+            dataManager.loadFromFile(path);
+            currentFilePath = path;
+            out.println("Data loaded from " + path);
+        } catch (IOException e) {
+            throw new ValidationException("Failed to read file: " + e.getMessage());
+        } catch (ValidationException e) {
+            throw new ValidationException("Invalid file content: " + e.getMessage());
+        }
+    }
+
+    // ===== 3 ЭТАП: JSON =====
+    //Метод проверяющий что путь передан и возвращет этот же путь, если пути нет ошибка
+    private String extractSingleArgument(ParsedCommand command, String commandName) {
+        if (command.arguments.isEmpty()) {
+            throw new ValidationException(commandName + " requires a file path");
+        }
+
+        return command.arguments;
     }
 }
 

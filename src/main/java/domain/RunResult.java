@@ -21,16 +21,19 @@ public final class RunResult {
     private final Instant createdAt;
     private Instant updatedAt;
 
-    public RunResult(long id, long runId, MeasurementParam param, double value, String unit, String comment) {
-        this.createdAt = Instant.now();
-        this.updatedAt = this.createdAt;
 
+    public RunResult(long id, long runId, MeasurementParam param, double value, String unit, String comment) {
+        this(id, runId, param, value, unit, comment, Instant.now(), Instant.now());
+    }
+
+    private RunResult(long id, long runId, MeasurementParam param, double value, String unit, String comment, Instant createdAt, Instant updatedAt) {
         validateId(id);
         validateRunId(runId);
         validateParam(param);
         validateValueByParam(param, value);
         validateUnit(unit);
-        if (comment != null) validateComment(comment);
+        validateComment(comment);
+        validateTimestamps(createdAt, updatedAt);
 
         this.id = id;
         this.runId = runId;
@@ -38,7 +41,10 @@ public final class RunResult {
         this.value = value;
         this.unit = unit;
         this.comment = comment;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
+
 
     private static void validateId(long id) {
         if (id <= 0)
@@ -151,4 +157,30 @@ public final class RunResult {
     public Instant getCreatedAt() {
         return createdAt;
     }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    // 3 ЭТАП: JSON
+    //Метод для востановления объекта из JSON
+    public static RunResult restore(long id, long runId, MeasurementParam param, double value,
+                                    String unit, String comment, Instant createdAt, Instant updatedAt) {
+        return new RunResult(id, runId, param, value, unit, comment, createdAt, updatedAt);
+    }
+
+    // 3 ЭТАП:
+    //Проверка коректонсти времени
+    private static void validateTimestamps(Instant createdAt, Instant updatedAt) {
+        if (createdAt == null) {
+            throw new ValidationException("RunResult createdAt can't be null");
+        }
+        if (updatedAt == null) {
+            throw new ValidationException("RunResult updatedAt can't be null");
+        }
+        if (updatedAt.isBefore(createdAt)) {
+            throw new ValidationException("RunResult updatedAt can't be before createdAt");
+        }
+    }
+
 }
