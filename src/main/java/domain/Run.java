@@ -106,13 +106,11 @@ public final class Run {
     public Instant getUpdatedAt() {
         return updatedAt;}
 
-    // 3 ЭТАП: JSON
     //Метод для востановления объекта из JSON
     public static Run restore(long id, long experimentId, String name, String operatorName, Instant createdAt, Instant updatedAt) {
         return new Run(id, experimentId, name, operatorName, createdAt, updatedAt);
     }
 
-    //  3 ЭТАП: JSON
     //Проверка коректонсти времени
     private static void validateTimestamps(Instant createdAt, Instant updatedAt) {
         if (createdAt == null)

@@ -51,18 +51,20 @@ public class ExperimentService {
         }
         return exp;
     }
-    // 3 ЭТАП: JSON
+
     // Возвращаем копию коллекции для сохранения
     public List<Experiment> snapshot() {
         return new ArrayList<>(experiments.values());
     }
-    // 3 ЭТАП: JSON
+
     // Метод загружает восстановленные объекты и обновляет nextId
     public void loadRestored(List<Experiment> restoredExperiments) {
-        Map<Long, Experiment> loadedExperiments = new TreeMap<>();//Создаем временное хранилище куда будем складывать загруженные эксперементы
+        //Создаем временное хранилище куда будем складывать загруженные эксперементы
+        Map<Long, Experiment> loadedExperiments = new TreeMap<>();
         long maxId = 0;
 
-        for (Experiment experiment : restoredExperiments) {//Проходим по всем эксперементам проверяем что ID не повторяются, если что выбрасываем ошибку
+        //Проходим по всем эксперементам проверяем что ID не повторяются, если что выбрасываем ошибку
+        for (Experiment experiment : restoredExperiments) {
             if (loadedExperiments.put(experiment.getId(), experiment) != null) {
                 throw new ValidationException("Duplicate experiment id: " + experiment.getId());
             }

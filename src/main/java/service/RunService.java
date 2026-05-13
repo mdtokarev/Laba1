@@ -68,19 +68,21 @@ public class RunService {
                 .filter(run -> run.getExperimentId() == experimentId)
                 .toList();
     }
-    // 3 ЭТАП: JSON
+
     // Возвращаем копию коллекции для сохранения
     public List<Run> snapshot() {
         return new ArrayList<>(runs.values());
     }
 
-    // 3 ЭТАП: JSON
+
     // Метод загружает восстановленные объекты и обновляет nextId
     public void loadRestored(List<Run> restoredRuns) {
-        Map<Long, Run> loadedRuns = new TreeMap<>();//Создаем временное хранилище куда будем складывать загруженные  прогоны
+        //Создаем временное хранилище куда будем складывать загруженные  прогоны
+        Map<Long, Run> loadedRuns = new TreeMap<>();
         long maxId = 0;
 
-        for (Run run : restoredRuns) {//Проходим по всем прогонам и проверяем что ссылаемся на существующий эксперемент
+        //Проходим по всем прогонам и проверяем что ссылаемся на существующий эксперемент
+        for (Run run : restoredRuns) {
             experimentService.getById(run.getExperimentId());
 
             if (loadedRuns.put(run.getId(), run) != null) {//Если ID дублируется ошибка

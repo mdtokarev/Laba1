@@ -13,20 +13,24 @@ public class SnapshotMapper {
 
     //Метод для сохранения
     public DataSnapshot toSnapshot(List<Experiment> experiments, List<Run> runs, List<RunResult> results) {
-        return new DataSnapshot(experiments.stream().map(this::toExperimentData).toList(), runs.stream().map(this::toRunData).toList(), results.stream().map(this::toRunResultData).toList());//Берем domain и превращаем их в domainData
+        //Берем domain и превращаем их в domainData
+        return new DataSnapshot(experiments.stream().map(this::toExperimentData).toList(), runs.stream().map(this::toRunData).toList(), results.stream().map(this::toRunResultData).toList());
     }
 
     //Методы для загрузки
     public List<Experiment> toExperiments(DataSnapshot snapshot) {
-        return snapshot.getExperiments().stream().map(this::toExperiment).toList();//Берем ExperimentData и превращаем оратно в Experiment
+        //Берем ExperimentData и превращаем оратно в Experiment
+        return snapshot.getExperiments().stream().map(this::toExperiment).toList();
     }
 
     public List<Run> toRuns(DataSnapshot snapshot) {
-        return snapshot.getRuns().stream().map(this::toRun).toList();//Берем RunData и превращаем оратно в Run
+        //Берем RunData и превращаем оратно в Run
+        return snapshot.getRuns().stream().map(this::toRun).toList();
     }
 
     public List<RunResult> toRunResults(DataSnapshot snapshot) {
-        return snapshot.getRunResults().stream().map(this::toRunResult).toList();//Берем RunResultsData и превращаем оратно в RunResults
+        //Берем RunResultsData и превращаем оратно в RunResults
+        return snapshot.getRunResults().stream().map(this::toRunResult).toList();
     }
 
     //Переводим один Experiment в один ExperimentData, все данные копируются, время превращаются в строки через toString
@@ -46,16 +50,19 @@ public class SnapshotMapper {
 
     //Переводим ExperimentData обратно в Experiment, копируя все даннные, время через Instant.parse
     private Experiment toExperiment(ExperimentData data) {
-        return Experiment.restore(data.getId(), data.getName(), data.getDescription(), data.getOwnerUsername(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));//Используем именно Experiment.restore так как нам надо востановить объекты из файла
+        //Используем именно Experiment.restore так как нам надо востановить объекты из файла
+        return Experiment.restore(data.getId(), data.getName(), data.getDescription(), data.getOwnerUsername(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));
     }
 //Переводим RunData обратно в Run, копируя все даннные, время через Instant.parse
     private Run toRun(RunData data) {
-        return Run.restore(data.getId(), data.getExperimentId(), data.getName(), data.getOperatorName(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));//Используем именно Experiment.restore так как нам надо востановить объекты из файла
+        //Используем именно Run.restore так как нам надо востановить объекты из файла
+        return Run.restore(data.getId(), data.getExperimentId(), data.getName(), data.getOperatorName(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));
     }
 
     //Переводим RunResultData обратно в RunResult, копируя все даннные, время через Instant.parse
     private RunResult toRunResult(RunResultData data) {
-        return RunResult.restore(data.getId(), data.getRunId(), MeasurementParam.valueOf(data.getParam()), data.getValue(), data.getUnit(), data.getComment(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));//Используем именно Experiment.restore так как нам надо востановить объекты из файла
+        //Используем именно RunResult.restore так как нам надо востановить объекты из файла
+        return RunResult.restore(data.getId(), data.getRunId(), MeasurementParam.valueOf(data.getParam()), data.getValue(), data.getUnit(), data.getComment(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));
     }
 }
 

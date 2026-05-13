@@ -12,12 +12,12 @@ public class JsonFileStorage {
     private final ObjectMapper mapper;
 
     public JsonFileStorage() {
-        this.mapper = new ObjectMapper()
-                .enable(SerializationFeature.INDENT_OUTPUT);//Удобное форматирование
+        this.mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);//Удобное форматирование
     }
 //Метод для сохранения
     public void save(Path path, DataSnapshot snapshot) throws IOException {
-        Path parent = path.getParent();//Берем родительскую папку файла, сели есть создаем файл. Если нет родительской то создаст ее
+        //Берем родительскую папку файла, сели есть создаем файл. Если нет родительской то создаст ее
+        Path parent = path.getParent();
 
         if (parent != null) {
             Files.createDirectories(parent);

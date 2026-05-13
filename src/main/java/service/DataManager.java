@@ -33,17 +33,20 @@ public class DataManager {
 
     //Метод для сохранения в файл
     public void saveToFile(String path) throws IOException {
-        DataSnapshot snapshot = mapper.toSnapshot(experimentService.snapshot(), runService.snapshot(), resultService.snapshot());//Собираем все данные в DataSnapshot
+        //Собираем все данные в DataSnapshot
+        DataSnapshot snapshot = mapper.toSnapshot(experimentService.snapshot(), runService.snapshot(), resultService.snapshot());
 //Переводим данные в формат для JSON
         storage.save(Path.of(path), snapshot);
     }
 
     //Метод сохранения данных из файла
     public void loadFromFile(String path) throws IOException {
-        DataSnapshot snapshot = storage.load(Path.of(path));//Читаем JSON-файл и получаем DataSnapshot
+        //Читаем JSON-файл и получаем DataSnapshot
+        DataSnapshot snapshot = storage.load(Path.of(path));
         validator.validate(snapshot);//Валидируем их
 
-        List<Experiment> experiments = mapper.toExperiments(snapshot);//mapper восстанавливает обычные domain объекты
+        //mapper восстанавливает обычные domain объекты
+        List<Experiment> experiments = mapper.toExperiments(snapshot);
         List<Run> runs = mapper.toRuns(snapshot);
         List<RunResult> results = mapper.toRunResults(snapshot);
 

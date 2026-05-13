@@ -7,8 +7,27 @@ repositories {
     mavenCentral()
 }
 
+def javafxVersion = '21.0.2'
+def osName = System.getProperty('os.name').toLowerCase()
+
+def javafxPlatform
+if (osName.contains('win')) {
+    javafxPlatform = 'win'
+} else if (osName.contains('mac')) {
+    javafxPlatform = 'mac'
+} else {
+    javafxPlatform = 'linux'
+}
+
 dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+
+    implementation "org.openjfx:javafx-base:${javafxVersion}:${javafxPlatform}"
+    implementation "org.openjfx:javafx-graphics:${javafxVersion}:${javafxPlatform}"
+    implementation "org.openjfx:javafx-controls:${javafxVersion}:${javafxPlatform}"
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 application {
@@ -19,8 +38,11 @@ test {
     useJUnitPlatform()
 }
 
-// ===== ФИКС КОДИРОВКИ =====
 compileJava.options.encoding = 'UTF-8'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
 
 run {
     jvmArgs = [
@@ -31,11 +53,10 @@ run {
     standardInput = System.in
 }
 
-tasks.withType(JavaCompile) {
-    options.encoding = 'UTF-8'
-}
-dependencies {
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+tasks.register('runUi', JavaExec) {
+    group = 'application'
+    description = 'Runs JavaFX UI'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'ui.UiLauncher'
+    jvmArgs = ['-Dfile.encoding=UTF-8']
 }

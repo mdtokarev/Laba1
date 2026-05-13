@@ -162,14 +162,14 @@ public final class RunResult {
         return updatedAt;
     }
 
-    // 3 ЭТАП: JSON
+
     //Метод для востановления объекта из JSON
     public static RunResult restore(long id, long runId, MeasurementParam param, double value,
                                     String unit, String comment, Instant createdAt, Instant updatedAt) {
         return new RunResult(id, runId, param, value, unit, comment, createdAt, updatedAt);
     }
 
-    // 3 ЭТАП:
+
     //Проверка коректонсти времени
     private static void validateTimestamps(Instant createdAt, Instant updatedAt) {
         if (createdAt == null) {

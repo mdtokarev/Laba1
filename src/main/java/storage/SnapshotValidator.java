@@ -93,7 +93,8 @@ public class SnapshotValidator {
     }
 
     private void validateResults(List<RunResultData> results) {
-        Set<Long> ids = new HashSet<>();//Создаем Set, чтобы запоминать уже встреченные ID
+        //Создаем Set, чтобы запоминать уже встреченные ID
+        Set<Long> ids = new HashSet<>();
 
         //Проходим по каждому результату прогона и проверяем что не null
         for (RunResultData result : results) {
@@ -131,7 +132,8 @@ public class SnapshotValidator {
             experimentIds.add(experiment.getId());
         }
 
-        Set<Long> runIds = new HashSet<>();//Создаем Set ID, проходим по запускам, проверяем существует ли эксперимент, на который ссылается запуск, если нет ошибка
+        //Создаем Set ID, проходим по запускам, проверяем существует ли эксперимент, на который ссылается запуск, если нет ошибка
+        Set<Long> runIds = new HashSet<>();
         for (RunData run : runs) {
             if (!experimentIds.contains(run.getExperimentId())) {
                 throw new ValidationException("Run id=" + run.getId() + " references missing experiment id=" + run.getExperimentId());

@@ -12,8 +12,7 @@ public class RunData {
     public RunData() {
     }
 
-    public RunData(Long id, Long experimentId, String name,
-                   String operatorName, String createdAt, String updatedAt) {
+    public RunData(Long id, Long experimentId, String name, String operatorName, String createdAt, String updatedAt) {
         this.id = id;
         this.experimentId = experimentId;
         this.name = name;

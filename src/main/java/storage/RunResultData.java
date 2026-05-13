@@ -14,8 +14,7 @@ public class RunResultData {
     public RunResultData() {
     }
 
-    public RunResultData(Long id, Long runId, String param, Double value,
-                         String unit, String comment, String createdAt, String updatedAt) {
+    public RunResultData(Long id, Long runId, String param, Double value, String unit, String comment, String createdAt, String updatedAt) {
         this.id = id;
         this.runId = runId;
         this.param = param;

@@ -114,7 +114,7 @@ public final class Experiment {
     public Instant getUpdatedAt() {
         return updatedAt;
     }
-    //3 ЭТАП: JSON
+
     //Проверка коректонсти времени
     private static void validateTimestamps(Instant createdAt, Instant updatedAt) {
         if (createdAt == null)
@@ -126,7 +126,7 @@ public final class Experiment {
         }
     }
 
-    // 3 ЭТАП: JSON
+
     //Метод для востановления объекта из JSON
     public static Experiment restore(long id, String name, String description, String ownerUsername, Instant createdAt, Instant updatedAt) {
         return new Experiment(id, name, description, ownerUsername, createdAt, updatedAt);

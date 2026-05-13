@@ -2,7 +2,7 @@ package cli;
 
 public class Main {
     public static void main(String[] args) {
-        // 3 ЭТАП: JSON
+
         // Если путь к JSON передали аргументом при запуске, CLI попробует загрузить данные сразу
         String initialFilePath = null;
 

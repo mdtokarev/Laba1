@@ -46,15 +46,14 @@ public class CliRunner {
         this.runService = new RunService(experimentService);
         this.runResultService = new RunResultService(runService);
 
-        // ===== 3 ЭТАП: JSON =====
         this.dataManager = new DataManager(experimentService, runService, runResultService);
-        this.currentFilePath = initialFilePath;
+        this.currentFilePath = null;
 
-        // 3 ЭТАП: JSON
         // Если путь передали при запуске, программа пробует загрузить файл сразу
         if (initialFilePath != null && !initialFilePath.isBlank()) {
             try {
                 dataManager.loadFromFile(initialFilePath);
+                currentFilePath = initialFilePath;
                 out.println("Data loaded from " + initialFilePath);
             } catch (IOException | ValidationException e) {
                 out.println("Warning: could not load initial file: " + e.getMessage());
@@ -94,8 +93,8 @@ public class CliRunner {
             switch (parsedCommand.name()) {
 //                Перебираем команды и вызываем соответствующий метод
                 case "help" -> printHelp();
-                // 3 ЭТАП: JSON
                 case "save" -> handleSave(parsedCommand);
+                case "save_as" -> handleSaveAs(parsedCommand);
                 case "load" -> handleLoad(parsedCommand);
                 case "exit" -> handleExit();
                 case "exp_add" -> handleExperimentAdd(parsedCommand);
@@ -154,8 +153,8 @@ public class CliRunner {
         out.println("res_add <runId> - add a result for run");
         out.println("res_list <runId> [--param PARAM] - show results for run");
         out.println("exp_summary <id> - show summary for experiment");
-        // 3 ЭТАП: JSON
-        out.println("save <path> - save all data to JSON file");
+        out.println("save - save all data to current JSON file");
+        out.println("save_as <path> - save all data to a new JSON file and make it current");
         out.println("load <path> - load data from JSON file");
         out.println("exit - stop the program");
     }
@@ -616,11 +615,25 @@ public class CliRunner {
     private record ParsedCommand(String name, String arguments) {
     }
 
-    // 3 ЭТАП: JSON
-    //Метод сохранение данных в JSON, если что то не так выбрасываем ошибку
+    // Если путь не передали, сохраняем в текущий открытый файл
     private void handleSave(ParsedCommand command) {
-        String path = extractSingleArgument(command, "save");
+        guaranteeNoArguments(command, "save");
 
+        if (currentFilePath == null || currentFilePath.isBlank()) {
+            throw new ValidationException("No current file. Use save_as <path> first");
+        }
+
+        saveToPath(currentFilePath);
+    }
+
+    // Сохраняем в новый файл и делаем его текущим
+    private void handleSaveAs(ParsedCommand command) {
+        String path = extractSingleArgument(command, "save_as");
+
+        saveToPath(path);
+    }
+
+    private void saveToPath(String path) {
         try {
             dataManager.saveToFile(path);
             currentFilePath = path;
@@ -630,7 +643,6 @@ public class CliRunner {
         }
     }
 
-    // ===== 3 ЭТАП: JSON =====
     //Метод для сохраннения данных из JSON, если что то не так выбрасываем ошибку
     private void handleLoad(ParsedCommand command) {
         String path = extractSingleArgument(command, "load");
@@ -646,14 +658,13 @@ public class CliRunner {
         }
     }
 
-    // ===== 3 ЭТАП: JSON =====
+
     //Метод проверяющий что путь передан и возвращет этот же путь, если пути нет ошибка
     private String extractSingleArgument(ParsedCommand command, String commandName) {
-        if (command.arguments.isEmpty()) {
+        if (command.arguments.isBlank()) {
             throw new ValidationException(commandName + " requires a file path");
         }
 
         return command.arguments;
     }
 }
-
