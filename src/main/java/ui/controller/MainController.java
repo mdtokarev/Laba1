@@ -49,6 +49,9 @@ public class MainController {
 
     private String currentFilePath;
 
+    //Для экспериментов, созданных из UI, временно ставим Id = 1
+    private static final long UI_SYSTEM_OWNER_ID = 1;
+
     public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService, DataManager dataManager, LabService labService, ExperimentSummaryService summaryService){
         this.stage = stage;
         this.experimentService = experimentService;
@@ -164,7 +167,7 @@ public class MainController {
     //Метод открывает окно добавления эксперимента
     private void addExperiment() {
         //Открываем окно добавления эксперимента
-        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Add experiment", "", "", "");
+        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Add experiment", "", "");
 
         //Если нажали Cancel то ничего не делаем
         if (result.isEmpty()) {
@@ -174,7 +177,7 @@ public class MainController {
         //Достаем введенные данные
         ExperimentFormData data = result.get();
         //Передаем данные в сервис там создается настоящий Experiment
-        experimentService.add(data.getName(), data.getDescription(), data.getOwnerUsername());
+        experimentService.add(data.getName(), data.getDescription(),UI_SYSTEM_OWNER_ID);
 
         //Обновляем таблицы
         refreshAll();
@@ -188,7 +191,7 @@ public class MainController {
         Experiment experiment = experimentService.getById(selected.getId());
 
         //Открываем окно и передаем старые значения
-        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Edit experiment", experiment.getName(), experiment.getDescription(), experiment.getOwnerUsername());
+        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Edit experiment", experiment.getName(), experiment.getDescription());
 
         //Если Cancel или закрыл окно, то данных нет
         if (result.isEmpty()) {
@@ -199,7 +202,7 @@ public class MainController {
         ExperimentFormData data = result.get();
 
         //Передаем новые данные в сервисы
-        experimentService.update(experiment.getId(), data.getName(), data.getDescription(), data.getOwnerUsername());
+        experimentService.update(experiment.getId(), data.getName(), data.getDescription());
 
         //Обновляем таблицу
         refreshAll();

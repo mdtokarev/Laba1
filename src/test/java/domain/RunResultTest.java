@@ -10,7 +10,7 @@ class RunResultTest {
     @Test
 //    Проверяем что объект класса RunResult создаётся корректно
     void shouldCreateRunResultWithValidData() {
-        var exp = new Experiment(1,"exp_name", "exp_desc", "exp_owner");
+        var exp = new Experiment(1,"exp_name", "exp_desc", 1);
         var run = new Run(2, exp.getId(), "run name", "run operator");
         var rr = new RunResult(3, run.getId(), MeasurementParam.pH, 7.0, "pH", "comment");
 

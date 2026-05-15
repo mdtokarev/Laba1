@@ -10,7 +10,7 @@ class RunTest {
     @Test
 //    Проверяем что объект класса Run создаётся корректно
     void shouldCreateRunWithValidData() {
-        var exp = new Experiment(1,"exp_name", "exp_desc", "exp_owner");
+        var exp = new Experiment(1,"exp_name", "exp_desc", 1);
         var run = new Run(2, exp.getId(), "run_name", "run_operator");
 
         assertEquals("run_name", run.getName());

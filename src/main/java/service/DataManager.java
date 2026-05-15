@@ -3,8 +3,9 @@ package service;
 import domain.Experiment;
 import domain.Run;
 import domain.RunResult;
+import domain.User;
 import storage.DataSnapshot;
-import storage.JsonFileStorage;
+import storage.FileDataAccess;
 import storage.SnapshotMapper;
 import storage.SnapshotValidator;
 
@@ -17,16 +18,18 @@ public class DataManager {
     private final ExperimentService experimentService;
     private final RunService runService;
     private final RunResultService resultService;
+    private final AuthService authService;
 
-    private final JsonFileStorage storage;
+    private final FileDataAccess fileDataAccess;
     private final SnapshotMapper mapper;
     private final SnapshotValidator validator;
 
-    public DataManager(ExperimentService experimentService, RunService runService, RunResultService resultService) {
+    public DataManager(ExperimentService experimentService, RunService runService, RunResultService resultService, AuthService authService) {
         this.experimentService = experimentService;
         this.runService = runService;
         this.resultService = resultService;
-        this.storage = new JsonFileStorage();
+        this.authService = authService;
+        this.fileDataAccess = new FileDataAccess();
         this.mapper = new SnapshotMapper();
         this.validator = new SnapshotValidator();
     }
@@ -35,14 +38,14 @@ public class DataManager {
     public void saveToFile(String path) throws IOException {
         //Собираем все данные в DataSnapshot
         DataSnapshot snapshot = mapper.toSnapshot(experimentService.snapshot(), runService.snapshot(), resultService.snapshot());
-//Переводим данные в формат для JSON
-        storage.save(Path.of(path), snapshot);
+       //Переводим данные в формат для JSON
+        fileDataAccess.saveData(Path.of(path), snapshot);
     }
 
     //Метод сохранения данных из файла
     public void loadFromFile(String path) throws IOException {
         //Читаем JSON-файл и получаем DataSnapshot
-        DataSnapshot snapshot = storage.load(Path.of(path));
+        DataSnapshot snapshot = fileDataAccess.loadData(Path.of(path));
         validator.validate(snapshot);//Валидируем их
 
         //mapper восстанавливает обычные domain объекты
@@ -64,5 +67,19 @@ public class DataManager {
         experimentService.loadRestored(tempExperimentService.snapshot());
         runService.loadRestored(tempRunService.snapshot());
         resultService.loadRestored(tempResultService.snapshot());
+    }
+
+    //Сохранение пользователя в файл
+    public void saveUsersToFile(String path) throws IOException {
+        //Берем текущий список пользователей и записываем в файл
+        fileDataAccess.saveUsers(Path.of(path), authService.snapshot());
+    }
+
+    //Метод заргужает пользователей из файла
+    public void loadUsersFromFile(String path) throws IOException {
+        //Читаем список пользователей из файла
+        List<User> users = fileDataAccess.loadUsers(Path.of(path));
+        //Передаем пользователей в коллекцию
+        authService.loadRestored(users);
     }
 }

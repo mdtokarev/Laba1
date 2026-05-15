@@ -15,9 +15,10 @@ public class UiMain extends Application {
         ExperimentService experimentService = new ExperimentService();
         RunService runService = new RunService(experimentService);
         RunResultService resultService = new RunResultService(runService);
+        AuthService authService = new AuthService();
 
         //Создаем менеджер для загррузки и сохранения
-        DataManager dataManager = new DataManager(experimentService, runService, resultService);
+        DataManager dataManager = new DataManager(experimentService, runService, resultService, authService);
 
         //Создаем сервис сложных операций удаления
         LabService labService = new LabService(experimentService, runService, resultService);

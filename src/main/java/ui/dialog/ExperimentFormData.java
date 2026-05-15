@@ -4,12 +4,10 @@ package ui.dialog;
 public class ExperimentFormData {
     private final String name;
     private final String description;
-    private final String ownerUsername;
 
-    public  ExperimentFormData(String name, String description, String ownerUsername) {
+    public ExperimentFormData(String name, String description) {
         this.name = name;
         this.description = description;
-        this.ownerUsername = ownerUsername;
     }
 
     public String getName() {
@@ -20,7 +18,4 @@ public class ExperimentFormData {
         return description;
     }
 
-    public String getOwnerUsername() {
-        return ownerUsername;
-    }
 }

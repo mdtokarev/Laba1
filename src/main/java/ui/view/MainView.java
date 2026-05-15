@@ -207,9 +207,9 @@ public class MainView {
             descriptionColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
 
             //Создаем колонку owner, она работает со строками ExperimentRow
-            TableColumn<ExperimentRow, String> ownerColumn = new TableColumn<>("Owner");
+            TableColumn<ExperimentRow, Long> ownerColumn = new TableColumn<>("Owner ID");
             //Берем значение через гетер
-            ownerColumn.setCellValueFactory(new PropertyValueFactory<>("ownerUsername"));
+            ownerColumn.setCellValueFactory(new PropertyValueFactory<>("ownerId"));
 
             //Создаем колонку created, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, String> createdColumn = new TableColumn<>("Created");

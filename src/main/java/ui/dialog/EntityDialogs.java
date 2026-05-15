@@ -15,7 +15,7 @@ import java.util.Optional;
 public class EntityDialogs {
 
     //Показывает окно для добавления или редактирования эксперемента. Когда нажимаешь ок Optional с данными если Cancel то пусто
-    public Optional<ExperimentFormData> showExperimentDialog(String title, String name, String description, String ownerUsername) {
+    public Optional<ExperimentFormData> showExperimentDialog(String title, String name, String description) {
         //Создаем диалог, который в итоге вернет ExperimentFormData
         Dialog<ExperimentFormData> dialog = new Dialog<>();
         //Ставим заголовок и убираем header
@@ -26,8 +26,6 @@ public class EntityDialogs {
         TextField nameField = new TextField(valueOrEmpty(name));
         //Поле для описания
         TextArea descriptionArea = new TextArea(valueOrEmpty(description));
-        //Поле для владельца
-        TextField ownerField = new TextField(valueOrEmpty(ownerUsername));
 
         //Описание высотой 3 строчки
         descriptionArea.setPrefRowCount(3);
@@ -40,9 +38,7 @@ public class EntityDialogs {
         //Добавляем описание и поля ввода
         grid.add(new javafx.scene.control.Label("Description:"), 0, 1);
         grid.add(descriptionArea, 1, 1);
-        //Добавляем владельца и поля ввода
-        grid.add(new javafx.scene.control.Label("Owner:"), 0, 2);
-        grid.add(ownerField, 1, 2);
+
 
         //Добовляем сетку в окно
         dialog.getDialogPane().setContent(grid);
@@ -53,7 +49,7 @@ public class EntityDialogs {
         //Говорим что вернуть поле закрытия окна, если ок то создаем объект с нововеденными данными, если Cancel то нечего
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
-                return new ExperimentFormData(nameField.getText(), descriptionArea.getText(), ownerField.getText());
+                return new ExperimentFormData(nameField.getText(), descriptionArea.getText());
             }
 
             return null;

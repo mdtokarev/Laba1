@@ -14,7 +14,7 @@ public class UiModelMapper {
 
     //Получаем эксперемнт и превращаем в ExperimentRow, особое внимание времени переводим в строку
     public ExperimentRow toExperimentRow(Experiment experiment) {
-        return new ExperimentRow(experiment.getId(), experiment.getName(), experiment.getDescription(), experiment.getOwnerUsername(), experiment.getCreatedAt().toString(), experiment.getUpdatedAt().toString());
+        return new ExperimentRow(experiment.getId(), experiment.getName(), experiment.getDescription(), experiment.getOwnerId(), experiment.getCreatedAt().toString(), experiment.getUpdatedAt().toString());
     }
 
     //Получаем прогон и превращаем в RunRow, особое внимание времени переводим в строку

@@ -4,10 +4,8 @@ import domain.Experiment;
 import domain.MeasurementParam;
 import domain.Run;
 import domain.RunResult;
-import service.DataManager;
-import service.ExperimentService;
-import service.RunResultService;
-import service.RunService;
+import domain.User;
+import service.*;
 import validation.ValidationException;
 
 import java.io.IOException;
@@ -22,8 +20,14 @@ public class CliRunner {
     private final ExperimentService experimentService;
     private final RunService runService;
     private final RunResultService runResultService;
+    private final AuthService authService;
+    private final AccessControlService accessControlService;
+    private final LabService labService;
 
-    //  3 ЭТАП: JSON
+    //Создаем стандартное имя файла куда будут сохранять пользователей
+    private static final String USERS_FILE_PATH = "users.json";
+    private final String usersFilePath;
+
     // DataManager отвечает за сохранение и загрузку всех коллекций
     private final DataManager dataManager;
     private String currentFilePath;
@@ -38,16 +42,26 @@ public class CliRunner {
         this(inputStream, out, null);
     }
 
+    //При запуске  вызывает новый конструктор и передает файл пользователей по умолчанию
     public CliRunner(InputStream inputStream, PrintStream out, String initialFilePath) {
+        this(inputStream, out, initialFilePath, USERS_FILE_PATH);
+    }
+
+    CliRunner(InputStream inputStream, PrintStream out, String initialFilePath, String usersFilePath) {
         this.scanner = new Scanner(inputStream);
         this.out = out;
+        this.usersFilePath = usersFilePath;
 
         this.experimentService = new ExperimentService();
         this.runService = new RunService(experimentService);
         this.runResultService = new RunResultService(runService);
-
-        this.dataManager = new DataManager(experimentService, runService, runResultService);
+        this.authService = new AuthService();
+        this.accessControlService = new AccessControlService(experimentService, runService, runResultService);
+        this.labService = new LabService(experimentService, runService, runResultService);
+        this.dataManager = new DataManager(experimentService, runService, runResultService, authService);
         this.currentFilePath = null;
+        //Загружаем пользователей при старте программы
+        loadUsersOnStart();
 
         // Если путь передали при запуске, программа пробует загрузить файл сразу
         if (initialFilePath != null && !initialFilePath.isBlank()) {
@@ -70,7 +84,7 @@ public class CliRunner {
         running = true;
         printWelcome();
 
-//        hasNextLine() проверяет, не закончился ли ввод в консоль
+        //        hasNextLine() проверяет, не закончился ли ввод в консоль
         while (running && scanner.hasNextLine()) {
             out.print("> ");
 
@@ -86,6 +100,30 @@ public class CliRunner {
         }
     }
 
+    //Метод заргузки поьзователей при запуске
+        private void loadUsersOnStart() {
+            try {
+                //Заргужаем пользователей из файла и ловим ошибки
+                dataManager.loadUsersFromFile(usersFilePath);
+            } catch (IOException e) {
+                out.println("Warning: could not load users file: " + e.getMessage());
+            } catch (ValidationException e) {
+                out.println("Warning: invalid users file: " + e.getMessage());
+            }
+        }
+
+        //Мотод сохранения пользователей
+        private void saveUsers() {
+            try {
+                //Сохраняем пользователя в файл и ловим ошибки
+                dataManager.saveUsersToFile(usersFilePath);
+            } catch (IOException e) {
+                throw new ValidationException("Failed to save users: " + e.getMessage());
+            }
+        }
+
+
+
     private void handleCommand(String line) {
         ParsedCommand parsedCommand = parseCommand(line);
 
@@ -93,6 +131,10 @@ public class CliRunner {
             switch (parsedCommand.name()) {
 //                Перебираем команды и вызываем соответствующий метод
                 case "help" -> printHelp();
+                case "register" -> handleRegister(parsedCommand);
+                case "login" -> handleLogin(parsedCommand);
+                case "logout" -> handleLogout(parsedCommand);
+                case "whoami" -> handleWhoami(parsedCommand);
                 case "save" -> handleSave(parsedCommand);
                 case "save_as" -> handleSaveAs(parsedCommand);
                 case "load" -> handleLoad(parsedCommand);
@@ -101,11 +143,14 @@ public class CliRunner {
                 case "exp_list" -> handleExperimentList(parsedCommand);
                 case "exp_show" -> handleExperimentShow(parsedCommand);
                 case "exp_update" -> handleExperimentUpdate(parsedCommand);
+                case "exp_remove" -> handleExperimentRemove(parsedCommand);
                 case "run_add" -> handleRunAdd(parsedCommand);
                 case "run_list" -> handleRunList(parsedCommand);
                 case "run_show" -> handleRunShow(parsedCommand);
+                case "run_remove" -> handleRunRemove(parsedCommand);
                 case "res_add" -> handleResultAdd(parsedCommand);
                 case "res_list" -> handleResultList(parsedCommand);
+                case "res_remove" -> handleResultRemove(parsedCommand);
                 case "exp_summary" -> handleExperimentSummary(parsedCommand);
                 default -> out.println("Unknown command: " + line + ". Type 'help' to see available commands.");
             }
@@ -142,16 +187,23 @@ public class CliRunner {
     private void printHelp() {
 //        Выводит список доступных программ
         out.println("Available commands:");
+        out.println("register - create new user");
+        out.println("login - login as user");
+        out.println("logout - logout current user");
+        out.println("whoami - show current user");
         out.println("help - show available commands");
         out.println("exp_add - create a new experiment");
         out.println("exp_list - show all experiments");
         out.println("exp_show <id> - show one experiment");
         out.println("exp_update <id> field=value ... - update experiment");
+        out.println("exp_remove <id> - remove experiment with all runs and results");
         out.println("run_add <experimentId> - create a run for experiment");
         out.println("run_list <experimentId> - show runs for experiment");
         out.println("run_show <runId> - show one run");
+        out.println("run_remove <runId> - remove run with all results");
         out.println("res_add <runId> - add a result for run");
         out.println("res_list <runId> [--param PARAM] - show results for run");
+        out.println("res_remove <resultId> - remove result");
         out.println("exp_summary <id> - show summary for experiment");
         out.println("save - save all data to current JSON file");
         out.println("save_as <path> - save all data to a new JSON file and make it current");
@@ -217,13 +269,13 @@ public class CliRunner {
 
         out.println("Creating a new experiment.");
 
-//        По очереди спрашивает name, description, owner username
+        //Создать эксперимент можно только после входа
+        User currentUser = requireLoggedInUser();
+
         String name = readRequiredValue("Name");
         String description = readOptionalValue("Description");
-        String ownerUsername = readRequiredValue("Owner username");
 
-//        Передаёт собранные данные в сервис, и выводит ID созданного эксперимента
-        Experiment experiment = experimentService.add(name, description, ownerUsername);
+        Experiment experiment = experimentService.add(name, description, currentUser.getId());
         out.println("Experiment created with id " + experiment.getId());
     }
 
@@ -235,7 +287,7 @@ public class CliRunner {
         return experiment.getId()
                 + " | "
                 + " | name - " + experiment.getName()
-                + " | owner - " + experiment.getOwnerUsername()
+                + " | ownerId - " + experiment.getOwnerId()
                 + " | description - " + description;
     }
 
@@ -299,7 +351,7 @@ public class CliRunner {
 
 //        Используем метод format..(), чтобы в случае пустого описания вывести "-"
         out.println("Description: " + formatNullableValue(experiment.getDescription()));
-        out.println("Owner username: " + experiment.getOwnerUsername());
+        out.println("Owner id: " + experiment.getOwnerId());
         out.println("Created at: " + experiment.getCreatedAt());
         out.println("Updated at: " + experiment.getUpdatedAt());
     }
@@ -339,20 +391,22 @@ public class CliRunner {
 //        Получает из парсера id, field, value, находит эксперимент по id
         ExperimentUpdateRequest request = parseExperimentUpdateRequest(parsedCommand);
         Experiment experiment = experimentService.getById(request.id());
+        //Проверяем что пользователь вошел в систему
+        User currentUser = requireLoggedInUser();
+        accessControlService.checkCanModifyExperiment(currentUser.getId(), experiment.getId());
+
 
         String updatedName = experiment.getName();
         String updatedDescription = experiment.getDescription();
-        String updatedOwnerUsername = experiment.getOwnerUsername();
 
         switch (request.field()) {
 //            За один цикл команды обновляем только одно поле
             case "name" -> updatedName = request.value();
             case "description" -> updatedDescription = request.value();
-            case "ownerUsername" -> updatedOwnerUsername = request.value();
             default -> throw new ValidationException("Unknown experiment field: " + request.field());
         }
 
-        experimentService.update(experiment.getId(), updatedName, updatedDescription, updatedOwnerUsername);
+        experimentService.update(experiment.getId(), updatedName, updatedDescription);
         out.println("Experiment updated.");
     }
 
@@ -360,6 +414,10 @@ public class CliRunner {
     private void handleRunAdd(ParsedCommand parsedCommand) {
 //         Получение и проверка experimentId через парсер
         long experimentId = parseRequiredLongArgument(parsedCommand, "run_add", "experiment id");
+        //Проверяем что пользователь вошел в систему
+        User currentUser = requireLoggedInUser();
+        accessControlService.checkCanModifyExperiment(currentUser.getId(), experimentId);
+
 
         out.println("Creating a new run.");
 //        Пользователь вводит параметры прогона
@@ -451,6 +509,10 @@ public class CliRunner {
     private void handleResultAdd(ParsedCommand parsedCommand) {
 //        Через парсер берёт id прогона
         long runId = parseRequiredLongArgument(parsedCommand, "res_add", "run id");
+        //Проверяем что пользователь вошел в систему
+        User currentUser = requireLoggedInUser();
+        accessControlService.checkCanModifyRun(currentUser.getId(), runId);
+
 
         out.println("Creating a new result.");
 //        Интерактивный ввод параметров
@@ -666,5 +728,119 @@ public class CliRunner {
         }
 
         return command.arguments;
+    }
+
+    //Метод обрабатывает команду Register
+    private void handleRegister(ParsedCommand parsedCommand) {
+        //Проверяем что команда введена без аргументов
+        guaranteeNoArguments(parsedCommand, "register");
+
+        out.println("Register new user.");
+
+        //Просим ввсети данные
+        String login = readRequiredValue("Login");
+        String password = readRequiredValue("Password");
+
+        //Проверяем данные сохраняем в файл
+        User user = authService.register(login, password);
+        saveUsers();
+
+        out.println("User registered with id " + user.getId());
+    }
+
+    //Метод обрабатывает команду Login
+    private void handleLogin(ParsedCommand parsedCommand) {
+        //Проверяем что команда введена без аргументов
+        guaranteeNoArguments(parsedCommand, "login");
+
+        out.println("Login.");
+
+        //Просим ввсети данные
+        String login = readRequiredValue("Login");
+        String password = readRequiredValue("Password");
+
+        //Пытаемся войти
+        User user = authService.login(login, password);
+
+        out.println("Logged in as " + user.getLogin());
+    }
+
+    //Метод обрабатывает команду Logout
+    private void handleLogout(ParsedCommand parsedCommand) {
+        //Проверяем что команда введена без аргументов
+        guaranteeNoArguments(parsedCommand, "logout");
+
+        //Сбрасываем текущего пользователя
+        authService.logout();
+
+        out.println("Logged out.");
+    }
+
+    //Метод обрабатывает команду Whoami
+    private void handleWhoami(ParsedCommand parsedCommand) {
+        //Проверяем что команда введена без аргументов
+        guaranteeNoArguments(parsedCommand, "whoami");
+
+        //Берем текущего пользователя
+        User currentUser = authService.getCurrentUser();
+
+        //Проверяем есть текущий пользователь или нет
+        if (currentUser == null) {
+            out.println("You are not logged in.");
+            return;
+        }
+
+        out.println("Current user: " + currentUser.getLogin() + " (id " + currentUser.getId() + ")");
+    }
+
+    //Метод для команд где обязателен вход
+    private User requireLoggedInUser() {
+        //Возвращаем текущего пользователя,если пользователь не вошел, будет ошибка
+        return authService.requireCurrentUser();
+    }
+
+    //Метод для команды удаления эксперимента
+    private void handleExperimentRemove(ParsedCommand parsedCommand) {
+        //Достаем id эксперимента из команды
+        long experimentId = parseRequiredLongArgument(parsedCommand, "exp_remove", "experiment id");
+
+        //Проверяем что пользователь вошел и он владелец
+        User currentUser = requireLoggedInUser();
+        accessControlService.checkCanModifyExperiment(currentUser.getId(), experimentId);
+
+        //Удаляем с дочерними данными
+        labService.removeExperimentWithChildren(experimentId);
+
+        out.println("Experiment removed.");
+    }
+
+    //Метод для команды удаления прогона
+    private void handleRunRemove(ParsedCommand parsedCommand) {
+        //Достаем id прогона
+        long runId = parseRequiredLongArgument(parsedCommand, "run_remove", "run id");
+
+        //Проверяем что пользователь вошел и его доступ к прогону
+        User currentUser = requireLoggedInUser();
+        accessControlService.checkCanModifyRun(currentUser.getId(), runId);
+
+        //Удаляем с дочерними данными
+        labService.removeRunWithResults(runId);
+
+        out.println("Run removed.");
+    }
+
+    //Метод для команды удаления результата
+    private void handleResultRemove(ParsedCommand parsedCommand) {
+        //Достаем id результата
+        long resultId = parseRequiredLongArgument(parsedCommand, "res_remove", "result id");
+
+        //Проверяем что пользователь вошел и емеет доступ к результату
+        User currentUser = requireLoggedInUser();
+        accessControlService.checkCanModifyResult(currentUser.getId(), resultId);
+
+        //Удаляем сам результат
+        runResultService.remove(resultId);
+
+        out.println("Result removed.");
     }
 }

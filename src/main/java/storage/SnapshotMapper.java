@@ -35,7 +35,7 @@ public class SnapshotMapper {
 
     //Переводим один Experiment в один ExperimentData, все данные копируются, время превращаются в строки через toString
     private ExperimentData toExperimentData(Experiment experiment) {
-        return new ExperimentData(experiment.getId(), experiment.getName(), experiment.getDescription(), experiment.getOwnerUsername(), experiment.getCreatedAt().toString(), experiment.getUpdatedAt().toString());
+        return new ExperimentData(experiment.getId(), experiment.getName(), experiment.getDescription(), experiment.getOwnerId(), experiment.getCreatedAt().toString(), experiment.getUpdatedAt().toString());
     }
 
     //Переводим один Run в один RunData, все данные копируются, время превращаются в строки через toString
@@ -51,7 +51,7 @@ public class SnapshotMapper {
     //Переводим ExperimentData обратно в Experiment, копируя все даннные, время через Instant.parse
     private Experiment toExperiment(ExperimentData data) {
         //Используем именно Experiment.restore так как нам надо востановить объекты из файла
-        return Experiment.restore(data.getId(), data.getName(), data.getDescription(), data.getOwnerUsername(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));
+        return Experiment.restore(data.getId(), data.getName(), data.getDescription(), data.getOwnerId(), Instant.parse(data.getCreatedAt()), Instant.parse(data.getUpdatedAt()));
     }
 //Переводим RunData обратно в Run, копируя все даннные, время через Instant.parse
     private Run toRun(RunData data) {

@@ -11,29 +11,29 @@ public final class Experiment {
     private String name;
     // Описание (кратко “что делаем”). Можно пусто. До 512 символов.
     private String description;
-    // Кто создал (логин). На ранних этапах можно "SYSTEM".
-    private String ownerUsername;
+    //ID пользователя владельца эксперимента
+    private final long ownerId;
     // Когда создан. Программа ставит автоматически.
     private final Instant createdAt;
     // Когда изменяли. Программа обновляет автоматически.
     private Instant updatedAt;
 
-    public Experiment(long id, String name, String description, String ownerUsername) {
-        this(id, name, description, ownerUsername, Instant.now(), Instant.now());
+    public Experiment(long id, String name, String description, long ownerId) {
+        this(id, name, description, ownerId, Instant.now(), Instant.now());
     }
 
 
-    private Experiment(long id, String name, String description, String ownerUsername, Instant createdAt, Instant updatedAt) {
+    private Experiment(long id, String name, String description,  long ownerId, Instant createdAt, Instant updatedAt) {
         validateId(id);
         validateName(name);
         validateDescription(description);
-        validateOwnerUsername(ownerUsername);
+        validateOwnerId(ownerId);
         validateTimestamps(createdAt, updatedAt);
 
         this.id = id;
         this.name = name;
         this.description = description;
-        this.ownerUsername = ownerUsername;
+        this.ownerId = ownerId;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -56,14 +56,11 @@ public final class Experiment {
             throw new ValidationException("Description too long");
     }
 
-    private static void validateOwnerUsername(String ownerUsername) {
-        if (ownerUsername == null || ownerUsername.isBlank())
-            throw new ValidationException("OwnerUsername can't be empty");
-        if (ownerUsername.length() > 128)
-            throw new ValidationException("OwnerUsername too long");
+    private static void validateOwnerId(long ownerId) {
+        if (ownerId <= 0) {
+            throw new ValidationException("Experiment ownerId must be positive");
+        }
     }
-
-
 
     public void setName(String name) {
         validateName(name);
@@ -77,22 +74,14 @@ public final class Experiment {
         this.updatedAt = Instant.now();
     }
 
-    public void setOwnerUsername(String ownerUsername) {
-        validateOwnerUsername(ownerUsername);
-        this.ownerUsername = ownerUsername;
-        this.updatedAt = Instant.now();
-    }
-
 /*    Выносим метод обновления из сервиса в доменный класс, тк он должен
       безопасно и корректно менять своё состояние, и не имеет отношения к коллекции */
-    public void update(String name, String description, String ownerUsername) {
+    public void update(String name, String description) {
         validateName(name);
         validateDescription(description);
-        validateOwnerUsername(ownerUsername);
 
         this.name = name;
         this.description = description;
-        this.ownerUsername = ownerUsername;
         this.updatedAt = Instant.now();
     }
 
@@ -105,8 +94,8 @@ public final class Experiment {
     public String getDescription() {
         return description;
     }
-    public String getOwnerUsername() {
-        return ownerUsername;
+    public long getOwnerId() {
+        return ownerId;
     }
     public Instant getCreatedAt() {
         return createdAt;
@@ -128,8 +117,8 @@ public final class Experiment {
 
 
     //Метод для востановления объекта из JSON
-    public static Experiment restore(long id, String name, String description, String ownerUsername, Instant createdAt, Instant updatedAt) {
-        return new Experiment(id, name, description, ownerUsername, createdAt, updatedAt);
+    public static Experiment restore(long id, String name, String description, long ownerId, Instant createdAt, Instant updatedAt) {
+        return new Experiment(id, name, description, ownerId, createdAt, updatedAt);
     }
 
 }

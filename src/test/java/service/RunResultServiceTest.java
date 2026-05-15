@@ -15,7 +15,7 @@ public class RunResultServiceTest {
         var runService = new RunService(experimentService);
         var resultService = new RunResultService(runService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var run = runService.add(experiment.getId(), "run", "operator");
         var result = resultService.add(run.getId(), MeasurementParam.pH, 7.0, "pH", "comment");
 
@@ -31,7 +31,7 @@ public class RunResultServiceTest {
         var runService = new RunService(experimentService);
         var resultService = new RunResultService(runService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var run = runService.add(experiment.getId(), "run", "operator");
 
         var first = resultService.add(run.getId(), MeasurementParam.pH, 7.0, "pH", "first");
@@ -49,7 +49,7 @@ public class RunResultServiceTest {
         var runService = new RunService(experimentService);
         var resultService = new RunResultService(runService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var run = runService.add(experiment.getId(), "run", "operator");
         var first = resultService.add(run.getId(), MeasurementParam.pH, 7.0, "pH", "first");
         var second = resultService.add(run.getId(), MeasurementParam.Temperature, 20.0, "C", "second");
@@ -68,7 +68,7 @@ public class RunResultServiceTest {
         var runService = new RunService(experimentService);
         var resultService = new RunResultService(runService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var firstRun = runService.add(experiment.getId(), "run1", "operator1");
         var secondRun = runService.add(experiment.getId(), "run2", "operator2");
         var expectedResult = resultService.add(firstRun.getId(), MeasurementParam.pH, 7.0, "pH", "first");
@@ -87,7 +87,7 @@ public class RunResultServiceTest {
         var runService = new RunService(experimentService);
         var resultService = new RunResultService(runService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var run = runService.add(experiment.getId(), "run", "operator");
         var result = resultService.add(run.getId(), MeasurementParam.pH, 7.0, "pH", "comment");
 
@@ -107,7 +107,7 @@ public class RunResultServiceTest {
         var runService = new RunService(experimentService);
         var resultService = new RunResultService(runService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var run = runService.add(experiment.getId(), "run", "operator");
         var result = resultService.add(run.getId(), MeasurementParam.pH, 7.0, "pH", "comment");
 
