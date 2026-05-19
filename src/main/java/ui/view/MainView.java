@@ -228,6 +228,8 @@ public class MainView {
             experimentTable.getColumns().add(ownerColumn);
             experimentTable.getColumns().add(createdColumn);
             experimentTable.getColumns().add(updatedColumn);
+
+            experimentTable.setTableMenuButtonVisible(true);
         }
 
     //Настраиваем таблицу прогонов
@@ -274,6 +276,8 @@ public class MainView {
             runTable.getColumns().add(operatorColumn);
             runTable.getColumns().add(createdColumn);
             runTable.getColumns().add(updatedColumn);
+
+            runTable.setTableMenuButtonVisible(true);
         }
 
     //Настраиваем таблицу результатов прогонов
@@ -332,6 +336,8 @@ public class MainView {
             resultTable.getColumns().add(commentColumn);
             resultTable.getColumns().add(createdColumn);
             resultTable.getColumns().add(updatedColumn);
+
+            resultTable.setTableMenuButtonVisible(true);
         }
     }
 
