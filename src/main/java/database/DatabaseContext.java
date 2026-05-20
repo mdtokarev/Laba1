@@ -19,7 +19,10 @@ public class DatabaseContext {
             return new DatabaseContext(null, false);
         }
 
+//        создается объект, который может открывать JDBC-соединение
         Database database = new Database(config);
+//        автоматическое создание таблиц
+        new DatabaseSchema(database).createIfNeeded();
         return new DatabaseContext(database, true);
     }
 
