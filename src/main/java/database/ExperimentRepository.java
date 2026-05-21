@@ -7,6 +7,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+// класс работает с таблицей experiments из БД
 public class ExperimentRepository {
     private  final Database database;
 
