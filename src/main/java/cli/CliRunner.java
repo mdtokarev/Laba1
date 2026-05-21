@@ -23,6 +23,7 @@ public class CliRunner {
     private final AuthService authService;
     private final AccessControlService accessControlService;
     private final LabService labService;
+    private final boolean databaseEnabled;
 
     //Создаем стандартное имя файла куда будут сохранять пользователей
     private static final String USERS_FILE_PATH = "users.json";
@@ -52,19 +53,26 @@ public class CliRunner {
         this.out = out;
         this.usersFilePath = usersFilePath;
 
-        this.experimentService = new ExperimentService();
-        this.runService = new RunService(experimentService);
-        this.runResultService = new RunResultService(runService);
-        this.authService = new AuthService();
-        this.accessControlService = new AccessControlService(experimentService, runService, runResultService);
-        this.labService = new LabService(experimentService, runService, runResultService);
-        this.dataManager = new DataManager(experimentService, runService, runResultService, authService);
-        this.currentFilePath = null;
-        //Загружаем пользователей при старте программы
-        loadUsersOnStart();
+//        CliRunner берет готовую сборку приложения из ApplicationService
+        ApplicationService service = new ApplicationService();
 
-        // Если путь передали при запуске, программа пробует загрузить файл сразу
-        if (initialFilePath != null && !initialFilePath.isBlank()) {
+        this.databaseEnabled = service.isDatabaseEnabled(); // режим работы приложения
+        this.experimentService = service.getExperimentService();
+        this.runService = service.getRunService();
+        this.runResultService = service.getRunResultService();
+        this.authService = service.getAuthService();
+        this.accessControlService = service.getAccessControlService();
+        this.labService = service.getLabService();
+        this.dataManager = service.getDataManager();
+        this.currentFilePath = null;
+
+//        загрузка пользователей при старте через AuthService -> UserRepository. если БД выкл -> старая загрузка из файла
+        if (!databaseEnabled) {
+            loadUsersOnStart();
+        }
+
+//        если передан путь и БД выкл -> через json; если БД вкл -> json не используем
+        if (!databaseEnabled && initialFilePath != null && !initialFilePath.isBlank()) {
             try {
                 dataManager.loadFromFile(initialFilePath);
                 currentFilePath = initialFilePath;
@@ -179,8 +187,11 @@ public class CliRunner {
     }
 
     private void printWelcome() {
-//        Выводит приветственное сообщение
+//        Выводит приветственное сообщение, сразу дает понимание, через что работаем
         out.println("Experiment CLI started.");
+        if (databaseEnabled) {
+            out.println("PostgreSQL storage is enabled.");
+        }
         out.println("Type 'help' to see available commands.");
     }
 
@@ -395,7 +406,6 @@ public class CliRunner {
         User currentUser = requireLoggedInUser();
         accessControlService.checkCanModifyExperiment(currentUser.getId(), experiment.getId());
 
-
         String updatedName = experiment.getName();
         String updatedDescription = experiment.getDescription();
 
@@ -512,7 +522,6 @@ public class CliRunner {
         //Проверяем что пользователь вошел в систему
         User currentUser = requireLoggedInUser();
         accessControlService.checkCanModifyRun(currentUser.getId(), runId);
-
 
         out.println("Creating a new result.");
 //        Интерактивный ввод параметров
@@ -681,6 +690,12 @@ public class CliRunner {
     private void handleSave(ParsedCommand command) {
         guaranteeNoArguments(command, "save");
 
+//        объясняем что данные уже подгружены из БД
+        if (databaseEnabled) {
+            out.println("Data is stored automatically in PostgreSQL.");
+            return;
+        }
+
         if (currentFilePath == null || currentFilePath.isBlank()) {
             throw new ValidationException("No current file. Use save_as <path> first");
         }
@@ -691,6 +706,10 @@ public class CliRunner {
     // Сохраняем в новый файл и делаем его текущим
     private void handleSaveAs(ParsedCommand command) {
         String path = extractSingleArgument(command, "save_as");
+        if (databaseEnabled) {
+            out.println("Data is stored automatically in PostgreSQL.");
+            return;
+        }
 
         saveToPath(path);
     }
@@ -708,6 +727,10 @@ public class CliRunner {
     //Метод для сохраннения данных из JSON, если что то не так выбрасываем ошибку
     private void handleLoad(ParsedCommand command) {
         String path = extractSingleArgument(command, "load");
+        if (databaseEnabled) {
+            out.println("Data is loaded automatically from PostgreSQL at startup.");
+            return;
+        }
 
         try {
             dataManager.loadFromFile(path);
@@ -741,12 +764,15 @@ public class CliRunner {
         String login = readRequiredValue("Login");
         String password = readRequiredValue("Password");
 
-        //Проверяем данные сохраняем в файл
+        //Проверяем данные сохраняем в файл. Если БД вкл - пишем в postgreSQL через репозитории
         User user = authService.register(login, password);
-        saveUsers();
+        if (!databaseEnabled) {
+            saveUsers();
+        }
 
         out.println("User registered with id " + user.getId());
     }
+
 
     //Метод обрабатывает команду Login
     private void handleLogin(ParsedCommand parsedCommand) {
