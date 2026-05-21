@@ -54,7 +54,7 @@ public class CliRunner {
         this.usersFilePath = usersFilePath;
 
 //        CliRunner берет готовую сборку приложения из ApplicationService
-        ApplicationService service = new ApplicationService();
+        ApplicationServices service = new ApplicationServices();
 
         this.databaseEnabled = service.isDatabaseEnabled(); // режим работы приложения
         this.experimentService = service.getExperimentService();

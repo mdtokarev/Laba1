@@ -7,14 +7,7 @@ import javafx.collections.FXCollections;
 import javafx.scene.Parent;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import service.DataManager;
-import service.ExperimentService;
-import service.ExperimentSummary;
-import service.ExperimentSummaryService;
-import service.LabService;
-import service.ParamStatistics;
-import service.RunResultService;
-import service.RunService;
+import service.*;
 import ui.dialog.AlertDialogs;
 import ui.dialog.EntityDialogs;
 import ui.dialog.ExperimentFormData;
@@ -41,6 +34,9 @@ public class MainController {
     private final DataManager dataManager;
     private final LabService labService;
     private final ExperimentSummaryService summaryService;
+    private final AuthService authService;
+    private final AccessControlService accessControlService;
+    private final boolean databaseEnabled;
 
     private final MainView view;
     private final UiModelMapper mapper;
@@ -52,7 +48,9 @@ public class MainController {
     //Для экспериментов, созданных из UI, временно ставим Id = 1
     private static final long UI_SYSTEM_OWNER_ID = 1;
 
-    public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService, DataManager dataManager, LabService labService, ExperimentSummaryService summaryService){
+    public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService,
+                          DataManager dataManager, LabService labService, ExperimentSummaryService summaryService,
+                          AuthService authService, AccessControlService accessControlService, boolean databaseEnabled) {
         this.stage = stage;
         this.experimentService = experimentService;
         this.runService = runService;
@@ -60,6 +58,9 @@ public class MainController {
         this.dataManager = dataManager;
         this.labService = labService;
         this.summaryService = summaryService;
+        this.authService = authService;
+        this.accessControlService = accessControlService;
+        this.databaseEnabled = databaseEnabled;
 
         this.view = new MainView();
         this.mapper = new UiModelMapper();
@@ -79,6 +80,10 @@ public class MainController {
 
     //Метод чтобы при запуске пользовательского окна мы могли запуститься с файлом
     public void loadInitialFile(String path) {
+        if (databaseEnabled) {
+            alerts.showInfo("PostgreSQL", "Data is loaded automatically from PostgreSQL.");
+            return;
+        }
         try {
             dataManager.loadFromFile(path);//Загружаем данные из файла
             currentFilePath = path;//Запоминаем файл как текущий
@@ -397,6 +402,10 @@ public class MainController {
 
     //Метод сохраняет данные в текущий JSON-файл
     private void save() throws IOException {
+        if (databaseEnabled) {
+            alerts.showInfo("PostgreSQL", "Data is stored automatically in PostgreSQL.");
+            return;
+        }
         //Проверяем текущий файл
         if (currentFilePath == null || currentFilePath.isBlank()) {
             //Если текущего файла нет вызываем saveAs
@@ -412,6 +421,10 @@ public class MainController {
 
     //Метод открывает окно выбора файла, сохраняет данные туда и делает этот путь текущим
     private void saveAs() throws IOException {
+        if (databaseEnabled) {
+            alerts.showInfo("PostgreSQL", "Data is stored automatically in PostgreSQL.");
+            return;
+        }
         //Создаем окно выбора файлов
         FileChooser chooser = createJsonFileChooser("Save As");
         //Показываем пользователю окно сохранения файла
@@ -433,6 +446,10 @@ public class MainController {
 
     //Метод открывает окно выбора JSON-файла, загружает данные через DataManager, обновляет таблицы
     private void load() throws IOException {
+        if (databaseEnabled) {
+            alerts.showInfo("PostgreSQL", "Data is loaded automatically from PostgreSQL at startup.");
+            return;
+        }
         //Создаем окно выбора файла
         FileChooser chooser = createJsonFileChooser("Load");
         //Показываем окно открытия файла

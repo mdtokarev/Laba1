@@ -7,7 +7,7 @@ import database.RunRepository;
 import database.RunResultRepository;
 import database.UserRepository;
 
-public class ApplicationService {
+public class ApplicationServices {
 //    флаг режима запуска: true -> работаем через postgreSQL, false -> работаем по старой схеме локально
     private final boolean databaseEnabled;
 
@@ -21,7 +21,7 @@ public class ApplicationService {
     private final DataManager dataManager;
     private final ExperimentSummaryService summaryService;
 
-    public ApplicationService() {
+    public ApplicationServices() {
 //        читаем db.properties -> создаем объект Database; узнаем статус БД (on/off)
         DatabaseContext context = DatabaseContext.loadDefault();
         this.databaseEnabled = context.isEnabled(); // сохраняем статус БД
