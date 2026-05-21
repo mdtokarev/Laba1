@@ -1,5 +1,6 @@
 package service;
 
+import database.UserRepository;
 import domain.User;
 import validation.ValidationException;
 
@@ -14,6 +15,23 @@ public class AuthService {
     private final Map<Long, User> users = new TreeMap<>();
     //Не храним обычный пароль, хешируем пароль
     private final PasswordHasher passwordHasher = new PasswordHasher();
+
+//    появляется внешний источник данных
+    private final UserRepository userRepository;
+
+//    смысл пустого конструктора - если не задается репозиторий, то работа идет в режиме без postgreSQL
+    public AuthService() {
+        this(null);
+    }
+
+//    основной конструктор - если репозиторий передан, то активировать режим с БД
+    public AuthService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+        if (userRepository != null) {
+//            идем в таблицу users, читаем всех и возвращаем List<User>
+            loadRestored(userRepository.findAll());
+        }
+    }
 
     //Первый пользователь id 1
     private long nextId = 1;
@@ -104,7 +122,7 @@ public class AuthService {
         //Очищаем текущую коллекцию
         users.clear();
         //Загружаем провернные данные
-        users.putAll( loadedUsers );
+        users.putAll(loadedUsers);
         //Устанавлеваем следующий id
         nextId = maxId + 1;
         //Обнуляем текущего пользователя
@@ -128,7 +146,15 @@ public class AuthService {
     }
 
     //Метод ищет пользователя по логину в коллекции
-    private User findByLogin(String login){
+//    если есть UserRepository -> ищем через бд; если нет -> через Map
+    private User findByLogin(String login) {
+        if (userRepository != null) {
+            User user = userRepository.findByLogin(login);
+            if (user != null) {
+                users.put(user.getId(), user); // нашли в БД - кладем еще в локальную коллекцию users (актуализация)
+            }
+            return user;
+        }
         return findByLoginInMap(users, login);
     }
 
