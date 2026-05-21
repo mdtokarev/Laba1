@@ -15,10 +15,12 @@ public class RunService {
     private long nextId = 1;
     private final RunRepository runRepository;
 
+//    старый режим - только TreeMap
     public RunService(ExperimentService experimentService) {
         this(experimentService, null);
     }
 
+//    новый режим - подключение к БД через RunRepository
     public RunService(ExperimentService experimentService, RunRepository runRepository) {
         this.experimentService = experimentService;
         this.runRepository = runRepository;
@@ -37,6 +39,7 @@ public class RunService {
 
         Run run;
         if (runRepository != null) {
+//            если БД подключена, то генерация id происходит в ней
             run = runRepository.insert(experimentId, name, operatorName);
             nextId = Math.max(nextId, run.getId() + 1);
         } else {
@@ -49,9 +52,9 @@ public class RunService {
 
     public void remove(long id) {
         if (!runs.containsKey(id)) {
+//            если прогона с таким номером НЕТ - кидаем исключение
             throw new ValidationException("Run with id " + id + " doesn't exist");
         }
-//        если эксперимента с таким номером НЕТ - кидаем исключение
         if (runRepository != null) {
             runRepository.delete(id);
         }
@@ -59,7 +62,7 @@ public class RunService {
     }
 
     public Run update(long id, String name, String operatorName) {
-//        Обновление реализуется доменным объектом
+//        Обновление реализуется доменным объектом, а репозиторий сохраняет новое состояние в БД
         Run run = getById(id);
         run.update(name, operatorName);
         if (runRepository != null) {
