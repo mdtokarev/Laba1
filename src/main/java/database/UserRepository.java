@@ -3,10 +3,7 @@ package database;
 import domain.User;
 import validation.ValidationException;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -96,6 +93,41 @@ public class UserRepository {
 
         } catch (SQLException e) {
             throw new ValidationException("Failed to create user: " + e.getMessage());
+        }
+    }
+
+//    восстановление пользователя с уже готовым id - существующий объект user положить в БД с тем же id
+    public void insertRestored(User user) {
+
+//        если в таблице уже есть строка с таким id - не падать с ошибкой, а просто ничего не делать
+        String sql = "insert into users(id, login, password_hash) values (?, ?, ?) on conflict (id) do nothing";
+
+        try (Connection connection = database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setLong(1, user.getId()); // сами указываем id в sql-запрос
+            statement.setString(2, user.getLogin());
+            statement.setString(3, user.getPasswordHash());
+
+            statement.executeUpdate(); // просто пытаемся вставить строку в таблицу - нам не нужно ResultSet
+            syncSequence(connection);
+
+        } catch (SQLException e) {
+            throw new ValidationException("Failed to restore user: " + e.getMessage());
+        }
+    }
+
+    /* выдача айди в БД работает через sequence внутри postgreSQL,
+    * если произойдет ситауция, что в таблице есть id=1,2,3 а мы хотим вставить пользователя с id=10,
+    * sequence не будет знать что с этим делать - для него следующий id=4
+    * новый метод синхронизирует sequence и обновляет внутренний счетчик postgreSQL */
+
+    private  void syncSequence(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+
+//            если таблица не пустая - берем максимальный id, если пустая - берем 1
+//            выставляем счетчик id на текущее максимальное значение в таблице
+            statement.execute("select setval(pg_set_serial_sequence('users', 'id'), coalesce((select max(id) from users), 1), true)");
         }
     }
 }
