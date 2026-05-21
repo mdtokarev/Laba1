@@ -1,5 +1,6 @@
 package service;
 
+import database.ExperimentRepository;
 import domain.Experiment;
 import validation.ValidationException;
 
@@ -15,12 +16,35 @@ public class ExperimentService {
     private final TreeMap<Long, Experiment> experiments = new TreeMap<>();
     //    Счётчик id - ответственность сервиса, хранится в нём
     private long nextId = 1;
+    private final ExperimentRepository experimentRepository;
+
+//    конструктор старого режима - только TreeMap
+    public ExperimentService() {
+        this(null);
+    }
+
+//    конструктор подключения к БД
+    public ExperimentService(ExperimentRepository experimentRepository) {
+        this.experimentRepository = experimentRepository;
+        if (experimentRepository != null) {
+//            из таблицы experiments возвращаем List<Experiment>
+            loadRestored(experimentRepository.findAll());
+        }
+    }
 
     private long generateNextId() {
         return nextId++;
     }
 
     public Experiment add(String name, String description, long ownerId) {
+        if (experimentRepository != null) {
+//            создаем эксперимент через БД, получаем готовый Experiment
+            Experiment exp = experimentRepository.insert(name, description, ownerId);
+            experiments.put(exp.getId(), exp); // кладем его в TreeMap
+            nextId = Math.max(nextId, exp.getId() + 1);
+            return exp;
+        }
+
         long id = generateNextId();
 
         Experiment exp = new Experiment(id, name, description, ownerId);
@@ -30,9 +54,13 @@ public class ExperimentService {
 
     public void remove(long id) {
         if (!experiments.containsKey(id)) {
+//            если эксперимента с таким номером НЕТ - кидаем исключение
             throw new ValidationException("Experiment with id - " + id + " doesn't exist");
         }
-//        если эксперимента с таким номером НЕТ - кидаем исключение
+
+        if (experimentRepository != null) {
+            experimentRepository.delete(id);
+        }
         experiments.remove(id);
     }
 
@@ -40,6 +68,9 @@ public class ExperimentService {
 //        Сервис находит нужный объект по id, само изменение выполняет доменный объект
         Experiment experiment = getById(id);
         experiment.update(name, description);
+        if (experimentRepository != null) {
+            experimentRepository.update(experiment);
+        }
         return experiment;
     }
     //Копия эксперементов
@@ -80,7 +111,6 @@ public void loadRestored(List<Experiment> restoredExperiments) {
     experiments.putAll(loadedExperiments);
     nextId = maxId + 1;
 }
-
 }
 
 
