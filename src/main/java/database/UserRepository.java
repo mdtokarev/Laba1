@@ -52,4 +52,25 @@ public class UserRepository {
         );
     }
 
+    public User findByLogin(String login) {
+        String sql = "select id, login, password_hash from users where login = ?";
+//        "?" - заглушка в запросе, означает "значение придет отдельно"
+        try (Connection connection = database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, login); // в первый "?" подставляем login
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+
+//                если строка нашлась - собираем объект User, если нет - возвращаем null
+                if (resultSet.next()) {
+                    return toUser(resultSet);
+                }
+                return null;
+            }
+
+        } catch (SQLException e) {
+            throw new ValidationException("Failed to find user: " + e.getMessage());
+        }
+    }
 }
