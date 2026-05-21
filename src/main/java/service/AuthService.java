@@ -44,10 +44,18 @@ public class AuthService {
             throw new ValidationException("Login is already taken");
         }
 
-        //Берем следующий id и увеличиваем счетчик
-        long id = nextId++;
         //Хешируем пароль
         String passwordHash = passwordHasher.hash(password);
+
+        if (userRepository != null) {
+            User user = userRepository.insert(login, passwordHash);
+            users.put(user.getId(), user);
+            nextId = Math.max(nextId, user.getId() + 1);
+            return user;
+        }
+
+        //Берем следующий id и увеличиваем счетчик
+        long id = nextId++;
 
         //Создаем пользователя
         User user = new User(id, login, passwordHash);
