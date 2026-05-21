@@ -73,4 +73,29 @@ public class UserRepository {
             throw new ValidationException("Failed to find user: " + e.getMessage());
         }
     }
+
+//    создание нового пользователя - login и passwordHash приходят в БД из программы
+    public User insert(String login, String passwordHash) {
+
+//        insert-запрос - вставит новую строку в таблицу users
+//        sql-запрос с "returning id" -> после insert БД вернет результат как таблицу
+
+        String sql = "insert into users(login, password_hash) values (?, ?) returning id";
+
+        try (Connection connection = database.getConnection();
+            PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, login);
+            statement.setString(2, passwordHash);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+//                возвращаем новый объект User
+                return new User(resultSet.getLong("id"), login, passwordHash);
+            }
+
+        } catch (SQLException e) {
+            throw new ValidationException("Failed to create user: " + e.getMessage());
+        }
+    }
 }
