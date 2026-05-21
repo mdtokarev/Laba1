@@ -1,5 +1,6 @@
 package service;
 
+import database.RunRepository;
 import domain.Run;
 import validation.ValidationException;
 
@@ -12,9 +13,18 @@ public class RunService {
     private final ExperimentService experimentService;
     //    Локальный счётчик ID, генерация происходит в сервисе
     private long nextId = 1;
+    private final RunRepository runRepository;
 
     public RunService(ExperimentService experimentService) {
+        this(experimentService, null);
+    }
+
+    public RunService(ExperimentService experimentService, RunRepository runRepository) {
         this.experimentService = experimentService;
+        this.runRepository = runRepository;
+        if (runRepository != null) {
+            loadRestored(runRepository.findAll());
+        }
     }
 
     private long generateNextId() {
@@ -25,9 +35,15 @@ public class RunService {
 //        Перед добавлением проверяем, что "родительский" Experiment существует
         experimentService.getById(experimentId);
 
-        long id = generateNextId();
-        Run run = new Run(id, experimentId, name, operatorName);
-        runs.put(id, run);
+        Run run;
+        if (runRepository != null) {
+            run = runRepository.insert(experimentId, name, operatorName);
+            nextId = Math.max(nextId, run.getId() + 1);
+        } else {
+            long id = generateNextId();
+            run = new Run(id, experimentId, name, operatorName);
+        }
+        runs.put(run.getId(), run);
         return run;
     }
 
@@ -36,6 +52,9 @@ public class RunService {
             throw new ValidationException("Run with id " + id + " doesn't exist");
         }
 //        если эксперимента с таким номером НЕТ - кидаем исключение
+        if (runRepository != null) {
+            runRepository.delete(id);
+        }
         runs.remove(id);
     }
 
@@ -43,6 +62,9 @@ public class RunService {
 //        Обновление реализуется доменным объектом
         Run run = getById(id);
         run.update(name, operatorName);
+        if (runRepository != null) {
+            runRepository.update(run);
+        }
         return run;
     }
 
