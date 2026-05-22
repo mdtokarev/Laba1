@@ -8,6 +8,7 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.ToolBar;
+import javafx.scene.control.Label;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Priority;
@@ -51,6 +52,9 @@ public class MainView {
 
     //Кнопка для статистики
     private final Button summaryButton = new Button("Summary");
+
+    // показываем текущего юзера, под которым открыт интерфейс
+    private final Label currentUserLabel = new Label("User: -");
 
     //Настраиваем интерфейс: таблицу эксперементов,прогонов,результатов и собираем все элементы в одно окно
     public MainView() {
@@ -148,10 +152,21 @@ public class MainView {
         return summaryButton;
     }
 
+    // метод обновляет надпись с текущим пользователем в верхней панели
+    public void setCurrentUserText(String text) {
+        currentUserLabel.setText(text);
+    }
+
     //Собираем внешний вид нашего окна
     private void configureLayout() {
         //Панель кнопок верхних
-        ToolBar fileToolbar = new ToolBar(refreshButton, saveButton, saveAsButton, loadButton, summaryButton);
+        ToolBar fileToolbar = new ToolBar(
+                refreshButton,
+                saveButton,
+                saveAsButton,
+                loadButton,
+                summaryButton,
+                currentUserLabel);
 
         //Панель кнопок эксперемента
         ToolBar experimentToolbar = new ToolBar(addExperimentButton, editExperimentButton, deleteExperimentButton);
