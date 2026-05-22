@@ -45,8 +45,7 @@ public class MainController {
 
     private String currentFilePath;
 
-    //Для экспериментов, созданных из UI, временно ставим Id = 1
-    private static final long UI_SYSTEM_OWNER_ID = 1;
+//    запускать в окно Ui только зареганных юзеров, удален костыль с owner_id = 1. см строка 188
 
     public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService,
                           DataManager dataManager, LabService labService, ExperimentSummaryService summaryService,
@@ -69,6 +68,10 @@ public class MainController {
 
         //Подключаем действия к кнопкам
         connectActions();
+
+        // показываем имя залогиненного пользователя
+        view.setCurrentUserText("User: " + authService.requireCurrentUser().getLogin());
+
         //Первый раз заполняем таблицы данными из сервисов
         refreshAll();
     }
@@ -121,10 +124,29 @@ public class MainController {
         view.getSummaryButton().setOnAction(event -> runSafely(this::showSummary));
 
         //Когда пользователь выбирает эксперимент, обновляется таблица прогонов
-        view.getExperimentTable().getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> refreshRunsForSelectedExperiment());
+        view.getExperimentTable().getSelectionModel().selectedItemProperty()
+                .addListener((
+                        observable,
+                        oldValue,
+                        newValue) -> { refreshRunsForSelectedExperiment();
+                                                     updateActionButtons(); // доступные кнопки - ?
+                        });
 
         //Когда пользователь выбирает прогон, обновляется таблица результатов
-        view.getRunTable().getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> refreshResultsForSelectedRun());
+        view.getRunTable().getSelectionModel().selectedItemProperty()
+                .addListener((
+                        observable,
+                        oldValue,
+                        newValue) -> { refreshResultsForSelectedRun();
+                                               updateActionButtons(); // доступные кнопки - ?
+                        });
+
+        view.getResultTable().getSelectionModel().selectedItemProperty()
+                .addListener((
+                        observable,
+                        oldValue, newValue) -> {
+            updateActionButtons();
+        });
     }
 
     //Метод полностью обновляет таблицу экспериментов из ExperimentService
@@ -134,6 +156,7 @@ public class MainController {
 
         //После обновления эксперементов обновляем зависимые таблицы
         refreshRunsForSelectedExperiment();
+        updateActionButtons();
     }
 
     //Метод обновляет таблицу прогонов для выбранного эксперимента
@@ -181,8 +204,8 @@ public class MainController {
 
         //Достаем введенные данные
         ExperimentFormData data = result.get();
-        //Передаем данные в сервис там создается настоящий Experiment
-        experimentService.add(data.getName(), data.getDescription(),UI_SYSTEM_OWNER_ID);
+        //Передаем данные в сервис там создается настоящий Experiment - новый должен принадлежать текущему юзеру
+        experimentService.add(data.getName(), data.getDescription(), authService.requireCurrentUser().getId());
 
         //Обновляем таблицы
         refreshAll();
@@ -192,6 +215,7 @@ public class MainController {
     private void editExperiment() {
         //Требуем, чтобы пользователь выбрал эксперимент
         ExperimentRow selected = requireSelectedExperiment();
+        requireCanModifyExperiment(selected.getId()); // проверка прав на редактирование эксперимента (чужой нельзя)
         //Берем настоящий объект из сервиса
         Experiment experiment = experimentService.getById(selected.getId());
 
@@ -217,11 +241,12 @@ public class MainController {
     private void deleteExperiment() {
         //Берем выбранный эксперемент
         ExperimentRow selected = requireSelectedExperiment();
+        requireCanModifyExperiment(selected.getId()); // проверка прав на удаление (чужой нельзя)
 
         //Спращиваем подтверждение о удалении
         boolean confirmed = alerts.confirm("Delete experiment with all runs and results?");
 
-        //Если Cancel или закрыл окно то не удаляем
+        //Если Cancel или закрыл окно, то не удаляем
         if (!confirmed) {
             return;
         }
@@ -237,6 +262,7 @@ public class MainController {
     private void addRun() {
         //Проверяем выбран ли эксперемент
         ExperimentRow selectedExperiment = requireSelectedExperiment();
+        requireCanModifyExperiment(selectedExperiment.getId()); // проверка прав (можно добавлять run только в свой)
 
         //Открываем окно добавления прогона
         Optional<RunFormData> result = dialogs.showRunDialog("Add run", "", "");
@@ -260,6 +286,7 @@ public class MainController {
     private void editRun() {
         //Проверяем что выбран прогон
         RunRow selected = requireSelectedRun();
+        requireCanModifyRun(selected.getId()); // редактировать чужой нельзя
         //Берем настоящий объект из сервиса
         Run run = runService.getById(selected.getId());
 
@@ -285,6 +312,7 @@ public class MainController {
     private void deleteRun() {
         //Проверяем что выбрали прогон
         RunRow selected = requireSelectedRun();
+        requireCanModifyRun(selected.getId()); // удалять чужой нельзя
 
         //Окно подтверждения
         boolean confirmed = alerts.confirm("Delete run with all results?");
@@ -305,6 +333,7 @@ public class MainController {
     private void addResult() {
         //Проверяем выбран ли прогон
         RunRow selectedRun = requireSelectedRun();
+        requireCanModifyRun(selectedRun.getId()); // нельзя добавлять к чужому
 
         //Открываем окно добавления
         Optional<RunResultFormData> result = dialogs.showResultDialog("Add result", null, 0, "", "");
@@ -328,6 +357,7 @@ public class MainController {
     private void editResult() {
         //Проверяем выбран ли прогон
         RunResultRow selected = requireSelectedResult();
+        requireCanModifyResult(selected.getId()); // редактировать чужой нельзя
         //Берем настоящий result из сервиса
         RunResult result = resultService.getById(selected.getId());
 
@@ -353,6 +383,7 @@ public class MainController {
     private void deleteResult() {
         //Проверяем выбран ли рузультат
         RunResultRow selected = requireSelectedResult();
+        requireCanModifyResult(selected.getId()); // нельзя удалять чужой
 
         //Окно подтверждения
         boolean confirmed = alerts.confirm("Delete selected result?");
@@ -483,6 +514,76 @@ public class MainController {
 
         //Возвращаем готовое окно выбора файла
         return chooser;
+    }
+
+//    метод смотрит, что сейчас выбрано в таблицах и решает, какие кнпоки можно нажимать
+    private void updateActionButtons() {
+
+        // берем текущий выбранный объект из его таблицы
+        ExperimentRow experiment = getSelectedExperiment();
+        RunRow run = getSelectedRun();
+        RunResultRow result = getSelectedResult();
+
+        // если объект выбран, вызываем canModify, который проверяет права пользователя
+        boolean canModifyExperiment = experiment != null && canModifyExperiment(experiment.getId());
+        boolean canModifyRun = run != null && canModifyRun(run.getId());
+        boolean canModifyResult = result != null && canModifyResult(result.getId());
+
+        // если canModify == false, выключаем кнопки
+        view.getEditExperimentButton().setDisable(!canModifyExperiment);
+        view.getDeleteExperimentButton().setDisable(!canModifyExperiment);
+        view.getAddRunButton().setDisable(!canModifyExperiment); // добавление Run зависит от прав на Experiment
+
+        view.getEditRunButton().setDisable(!canModifyRun);
+        view.getDeleteRunButton().setDisable(!canModifyRun);
+        view.getAddResultButton().setDisable(!canModifyRun);
+
+        view.getEditResultButton().setDisable(!canModifyResult);
+        view.getDeleteResultButton().setDisable(!canModifyResult);
+    }
+
+//    методы проверки прав - просто отдают true/false
+    private boolean canModifyExperiment(long experimentId) {
+        try {
+            // требуем регистрации юзера, берем его id, проверяем владение экспериментом
+            accessControlService.checkCanModifyExperiment(authService.requireCurrentUser().getId(), experimentId);
+            return true; // исключений нет -> объект менять можно -> true
+        } catch (ValidationException e) {
+            return false; // прав нет -> кнопку выключаем
+        }
+    }
+
+    private boolean canModifyRun(long runId) {
+        try {
+            accessControlService.checkCanModifyRun(authService.requireCurrentUser().getId(), runId);
+            return true;
+        } catch (ValidationException e) {
+            return false;
+        }
+    }
+
+    private boolean canModifyResult(long resultId) {
+        try {
+            accessControlService.checkCanModifyResult(authService.requireCurrentUser().getId(), resultId);
+            return true;
+        } catch (ValidationException e) {
+            return false;
+        }
+    }
+
+//    методы защиты действий
+    private void requireCanModifyExperiment(long experimentId) {
+        // если юзер имеет право -> все ок, выполнение идет дальше, ошибки нет
+        // в противном случае бросится Exception
+        accessControlService.checkCanModifyExperiment(authService.requireCurrentUser().getId(), experimentId);
+    }
+
+    private void requireCanModifyRun(long runId) {
+        accessControlService.checkCanModifyRun(authService.requireCurrentUser().getId(), runId);
+    }
+
+    private void requireCanModifyResult(long resultId) {
+        accessControlService.checkCanModifyResult(authService.requireCurrentUser().getId(), resultId);
     }
 
     //Метод возвращает выбранную строку из таблицы
