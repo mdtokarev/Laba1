@@ -401,9 +401,10 @@ public class CliRunner {
 
 //        Получает из парсера id, field, value, находит эксперимент по id
         ExperimentUpdateRequest request = parseExperimentUpdateRequest(parsedCommand);
-        Experiment experiment = experimentService.getById(request.id());
+
         //Проверяем что пользователь вошел в систему
         User currentUser = requireLoggedInUser();
+        Experiment experiment = experimentService.getById(request.id());
         accessControlService.checkCanModifyExperiment(currentUser.getId(), experiment.getId());
 
         String updatedName = experiment.getName();
