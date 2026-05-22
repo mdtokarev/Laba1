@@ -7,13 +7,13 @@
 -- "double precision" - соответствует java double
 
 
-create table if not exist users (
+create table if not exists users (
     id bigserial primary key,
     login varchar(64) not null unique,
     password_hash varchar(128) not null
 );
 
-create table if not exist experiments (
+create table if not exists experiments (
     id bigserial primary key,
     name varchar(128) not null,
     description varchar(512),
@@ -22,7 +22,7 @@ create table if not exist experiments (
     updated_at timestamp not null
 );
 
-create table if not exist runs (
+create table if not exists runs (
     id bigserial primary key,
     experiment_id bigint not null references experiments(id) on delete cascade,
     name varchar(128) not null,
@@ -31,7 +31,7 @@ create table if not exist runs (
     updated_at timestamp not null
 );
 
-create table if not exist run_results (
+create table if not exists run_results (
     id bigserial primary key,
     run_id bigint not null references runs(id) on delete cascade,
     param varchar(32) not null,
