@@ -151,12 +151,33 @@ public class MainController {
 
     //Метод полностью обновляет таблицу экспериментов из ExperimentService
     private void refreshAll() {
+        Long selectedExperimentId = getSelectedExperimentId();
+        Long selectedRunId = getSelectedRunId();
+        Long selectResultId = getSelectedResultId();
+
+        refreshDataFromStorage();
+
         //Каждый эксперемнт переводим в ExperimentRow, делаем список для таблицы, кладем данные в таблицу
         view.setExperiments(FXCollections.observableArrayList(experimentService.list().stream().map(mapper::toExperimentRow).toList()));
+        selectExperimentById(selectedExperimentId);
 
         //После обновления эксперементов обновляем зависимые таблицы
         refreshRunsForSelectedExperiment();
+        selectRunById(selectedRunId);
+        refreshResultsForSelectedRun();
+        selectResultById(selectResultId);
         updateActionButtons();
+    }
+
+    private void refreshDataFromStorage() {
+        if (!databaseEnabled) {
+            return;
+        }
+
+        authService.refreshFromRepository();
+        experimentService.refreshFromRepository();
+        runService.refreshFromRepository();
+        resultService.refreshFromRepository();
     }
 
     //Метод обновляет таблицу прогонов для выбранного эксперимента
@@ -602,6 +623,74 @@ public class MainController {
     private RunResultRow getSelectedResult() {
         //Берем выбранную строку из таблицы результатов, если ничего не выбрано, вернется null
         return view.getResultTable().getSelectionModel().getSelectedItem();
+    }
+
+//    вспомогательные методы для refresh - берут выбранную строку, возвращают ее id/null
+    private Long getSelectedExperimentId() {
+        ExperimentRow selected = getSelectedExperiment();
+        if (selected == null) {
+            return null;
+        } else {
+            return selected.getId();
+        }
+    }
+
+    private Long getSelectedRunId() {
+        RunRow selected = getSelectedRun();
+        if (selected == null) {
+            return null;
+        } else {
+            return selected.getId();
+        }
+    }
+
+    private Long getSelectedResultId() {
+        RunResultRow selected = getSelectedResult();
+        if (selected == null) {
+            return null;
+        } else {
+            return selected.getId();
+        }    }
+
+//    вспомогательные методы для refresh - ищем запомненную строку в таблице и выбираем ее обратно (если есть)
+    private void selectExperimentById(Long id) {
+        if (id == null) {
+            return;
+        }
+
+        for (ExperimentRow row : view.getExperimentTable().getItems()) {
+            if (row.getId() == id) {
+                view.getExperimentTable().getSelectionModel().select(row);
+                return;
+            }
+        }
+    }
+
+    private void selectRunById(Long id) {
+        if (id == null) {
+            return;
+        }
+
+//        ищем id, совпадающий с нужным нам - выбираем ее, выходим из метода (подсветка выбранной до рефреш строки)
+        for (RunRow row : view.getRunTable().getItems()) {
+            if (row.getId() == id) {
+                view.getRunTable().getSelectionModel().select(row);
+                return;
+            }
+        }
+    }
+
+    private void selectResultById(Long id) {
+        if (id == null) {
+            return;
+        }
+
+        for (RunResultRow row : view.getResultTable().getItems()) {
+            if (row.getId() == id) {
+                view.getResultTable().getSelectionModel().select(row);
+                return;
+            }
+        }
     }
 
     //Метод проверяет выбрана строка или нет

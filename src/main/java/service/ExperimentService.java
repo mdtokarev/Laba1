@@ -93,6 +93,15 @@ public List<Experiment> snapshot() {
     return new ArrayList<>(experiments.values());
 }
 
+// Метод будет вызываться ui, когда пользователь нажмет кнопку refresh
+public void refreshFromRepository() {
+        if (experimentRepository == null) {
+            return; // если не подключена бд - просто не делаем ничего
+        }
+
+        loadRestored(experimentRepository.findAll()); // если репо есть - идем в бд и читаем все оттуда
+}
+
 // Метод загружает восстановленные объекты и обновляет nextId
 public void loadRestored(List<Experiment> restoredExperiments) {
     //Создаем временное хранилище куда будем складывать загруженные эксперементы

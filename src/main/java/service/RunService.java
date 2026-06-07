@@ -99,6 +99,14 @@ public class RunService {
         return new ArrayList<>(runs.values());
     }
 
+    public void refreshFromRepository() {
+        if (runRepository == null) {
+            return;
+        }
+
+        loadRestored(runRepository.findAll());
+    }
+
 
     // Метод загружает восстановленные объекты и обновляет nextId
     public void loadRestored(List<Run> restoredRuns) {

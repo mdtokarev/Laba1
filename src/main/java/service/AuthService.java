@@ -106,6 +106,26 @@ public class AuthService {
         return new ArrayList<>(users.values());
     }
 
+//    метод будет перечитывать юзеров из бд, когда в ui нажмут refresh
+    public void refreshFromRepository() {
+        if (userRepository == null) {
+            return;
+        }
+
+        Long currentUserId; // вводим переменную чтобы запомнить текущего пользователя и не удалить его при перезапуске
+        if (currentUser == null) {
+            currentUserId = null;
+        } else {
+            currentUserId = currentUser.getId();
+        }
+
+        loadRestored(userRepository.findAll());
+//        если до refresh был залогиненный юзер - находим его и восстанавливаем
+        if (currentUserId != null) {
+            currentUser = users.get(currentUserId);
+        }
+    }
+
     //Метод загрузки пользователей из файла
     public void loadRestored(List<User> restoredUsers ){
         //Создаем временную коллекцию для проверки данных
