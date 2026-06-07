@@ -1,5 +1,6 @@
 package ui.controller;
 
+import database.DatabaseSequenceSynchronizer;
 import domain.Experiment;
 import domain.Run;
 import domain.RunResult;
@@ -37,6 +38,7 @@ public class MainController {
     private final AuthService authService;
     private final AccessControlService accessControlService;
     private final boolean databaseEnabled;
+    private final DatabaseSequenceSynchronizer sequenceSynchronizer;
 
     private final MainView view;
     private final UiModelMapper mapper;
@@ -49,7 +51,8 @@ public class MainController {
 
     public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService,
                           DataManager dataManager, LabService labService, ExperimentSummaryService summaryService,
-                          AuthService authService, AccessControlService accessControlService, boolean databaseEnabled) {
+                          AuthService authService, AccessControlService accessControlService, boolean databaseEnabled,
+                          DatabaseSequenceSynchronizer sequenceSynchronizer) {
         this.stage = stage;
         this.experimentService = experimentService;
         this.runService = runService;
@@ -60,6 +63,7 @@ public class MainController {
         this.authService = authService;
         this.accessControlService = accessControlService;
         this.databaseEnabled = databaseEnabled;
+        this.sequenceSynchronizer = sequenceSynchronizer;
 
         this.view = new MainView();
         this.mapper = new UiModelMapper();
@@ -174,6 +178,7 @@ public class MainController {
             return;
         }
 
+        sequenceSynchronizer.syncAll();
         authService.refreshFromRepository();
         experimentService.refreshFromRepository();
         runService.refreshFromRepository();

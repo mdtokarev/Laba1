@@ -1,11 +1,6 @@
 package service;
 
-import database.Database;
-import database.DatabaseContext;
-import database.ExperimentRepository;
-import database.RunRepository;
-import database.RunResultRepository;
-import database.UserRepository;
+import database.*;
 
 public class ApplicationServices {
 //    флаг режима запуска: true -> работаем через postgreSQL, false -> работаем по старой схеме локально
@@ -20,6 +15,7 @@ public class ApplicationServices {
     private final LabService labService;
     private final DataManager dataManager;
     private final ExperimentSummaryService summaryService;
+    private final DatabaseSequenceSynchronizer sequenceSynchronizer;
 
     public ApplicationServices() {
 //        читаем db.properties -> создаем объект Database; узнаем статус БД (on/off)
@@ -28,17 +24,17 @@ public class ApplicationServices {
 
         if (databaseEnabled) {
             Database database = context.getDatabase(); // берем объект, который может создавать JDBC-подключение
-
+            this.sequenceSynchronizer = new DatabaseSequenceSynchronizer(database);
 //            создаем репозиторий для таблицы users, передаем в сервис авторизации - далее работа через postgreSQL
             this.authService = new AuthService(new UserRepository(database));
 
             this.experimentService = new ExperimentService(new ExperimentRepository(database));
-
 //            RunService зависит от ExperimentService -> проверяем существование родителя
             this.runService = new RunService(experimentService, new RunRepository(database));
 
             this.runResultService = new RunResultService(runService, new RunResultRepository(database));
         } else {
+            this.sequenceSynchronizer = null;
 //            если БД не включена, то создаем сервисы по старой схеме (с сохранением зависимостей)
             this.experimentService = new ExperimentService();
             this.runService = new RunService(experimentService);
@@ -79,5 +75,8 @@ public class ApplicationServices {
     }
     public ExperimentSummaryService getSummaryService() {
         return summaryService;
+    }
+    public DatabaseSequenceSynchronizer getSequenceSynchronizer() {
+        return sequenceSynchronizer;
     }
 }

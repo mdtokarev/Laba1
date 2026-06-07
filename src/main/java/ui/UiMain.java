@@ -34,7 +34,8 @@ public class UiMain extends Application {
                 services.getSummaryService(),
                 authService,
                 services.getAccessControlService(),
-                services.isDatabaseEnabled()
+                services.isDatabaseEnabled(),
+                services.getSequenceSynchronizer()
         );
 
         Scene scene = new Scene(controller.getRoot(), 1200, 720);
