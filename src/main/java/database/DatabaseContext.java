@@ -23,6 +23,7 @@ public class DatabaseContext {
         Database database = new Database(config);
 //        автоматическое создание таблиц
         new DatabaseSchema(database).createIfNeeded();
+        new DatabaseSequenceSynchronizer(database).syncAll(); // синхро всех счетчиков при старте БД
         return new DatabaseContext(database, true);
     }
 
