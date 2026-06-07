@@ -15,9 +15,11 @@ import java.util.List;
 // класс для работы с таблицей run_results из БД
 public class RunResultRepository {
     private final Database database;
+    private final DatabaseSequenceSynchronizer sequenceSynchronizer;
 
     public RunResultRepository(Database database) {
         this.database = database;
+        this.sequenceSynchronizer = new DatabaseSequenceSynchronizer(database);
     }
 
     public List<RunResult> findAll() {
@@ -56,6 +58,8 @@ public class RunResultRepository {
     }
 
     public RunResult insert(long runId, MeasurementParam param, double value, String unit, String comment) {
+
+        sequenceSynchronizer.syncRunResults();
 
         String sql = """
                 insert into run_results(run_id, param, value, unit, comment, created_at, updated_at)

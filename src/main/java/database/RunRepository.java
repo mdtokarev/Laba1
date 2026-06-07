@@ -14,9 +14,11 @@ import java.util.List;
 // класс работает с таблицей runs из БД
 public class RunRepository {
     private final Database database;
+    private final DatabaseSequenceSynchronizer sequenceSynchronizer;
 
     public RunRepository(Database database) {
         this.database = database;
+        this.sequenceSynchronizer = new DatabaseSequenceSynchronizer(database);
     }
 
     public List<Run> findAll() {
@@ -54,6 +56,7 @@ public class RunRepository {
 
     public Run insert(long experimentId, String name, String operatorName) {
 
+        sequenceSynchronizer.syncRuns();
         String sql = """
                 insert into runs(experiment_id, name, operator_name, created_at, updated_at)
                 values (?, ?, ?, current_timestamp, current_timestamp)

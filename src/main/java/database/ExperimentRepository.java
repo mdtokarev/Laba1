@@ -10,9 +10,11 @@ import java.util.List;
 // класс работает с таблицей experiments из БД
 public class ExperimentRepository {
     private  final Database database;
+    private final DatabaseSequenceSynchronizer sequenceSynchronizer;
 
     public ExperimentRepository(Database database) {
         this.database = database;
+        this.sequenceSynchronizer = new DatabaseSequenceSynchronizer(database);
     }
 
     public List<Experiment> findAll() {
@@ -53,6 +55,8 @@ public class ExperimentRepository {
 
 //        owner_id приходит как параметр - id текущего авторизованного пользователя
 //        БД сама ставит время created_at & updated_at
+
+        sequenceSynchronizer.syncExperiments();
         String sql = """
                 insert into experiments(name, description, owner_id, created_at, updated_at)
                 values (?, ?, ?, current_timestamp, current_timestamp)

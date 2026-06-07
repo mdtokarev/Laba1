@@ -11,9 +11,11 @@ import java.util.List;
 // зона ответственности - sql для users
 public class UserRepository {
     private final Database database;
+    private final DatabaseSequenceSynchronizer sequenceSynchronizer;
 
     public UserRepository(Database database) {
         this.database = database;
+        this.sequenceSynchronizer = new DatabaseSequenceSynchronizer(database);
     }
 
     public List<User> findAll() {
@@ -77,6 +79,7 @@ public class UserRepository {
 //        insert-запрос - вставит новую строку в таблицу users
 //        sql-запрос с "returning id" -> после insert БД вернет результат как таблицу
 
+        sequenceSynchronizer.syncUsers();
         String sql = "insert into users(login, password_hash) values (?, ?) returning id";
 
         try (Connection connection = database.getConnection();
