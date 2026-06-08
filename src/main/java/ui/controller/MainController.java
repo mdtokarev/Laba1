@@ -32,13 +32,11 @@ public class MainController {
     private final ExperimentService experimentService;
     private final RunService runService;
     private final RunResultService resultService;
-    private final DataManager dataManager;
     private final LabService labService;
     private final ExperimentSummaryService summaryService;
     private final AuthService authService;
     private final AccessControlService accessControlService;
-    private final boolean databaseEnabled;
-    private final DatabaseSequenceSynchronizer sequenceSynchronizer;
+    private final StorageMode storageMode;
 
     private final MainView view;
     private final UiModelMapper mapper;
@@ -50,20 +48,17 @@ public class MainController {
 //    запускать в окно Ui только зареганных юзеров, удален костыль с owner_id = 1. см строка 188
 
     public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService,
-                          DataManager dataManager, LabService labService, ExperimentSummaryService summaryService,
-                          AuthService authService, AccessControlService accessControlService, boolean databaseEnabled,
-                          DatabaseSequenceSynchronizer sequenceSynchronizer) {
+                          LabService labService, ExperimentSummaryService summaryService,
+                          AuthService authService, AccessControlService accessControlService, StorageMode storageMode) {
         this.stage = stage;
         this.experimentService = experimentService;
         this.runService = runService;
         this.resultService = resultService;
-        this.dataManager = dataManager;
         this.labService = labService;
         this.summaryService = summaryService;
         this.authService = authService;
         this.accessControlService = accessControlService;
-        this.databaseEnabled = databaseEnabled;
-        this.sequenceSynchronizer = sequenceSynchronizer;
+        this.storageMode = storageMode;
 
         this.view = new MainView();
         this.mapper = new UiModelMapper();
@@ -87,15 +82,13 @@ public class MainController {
 
     //Метод чтобы при запуске пользовательского окна мы могли запуститься с файлом
     public void loadInitialFile(String path) {
-        if (databaseEnabled) {
-            alerts.showInfo("PostgreSQL", "Data is loaded automatically from PostgreSQL.");
-            return;
-        }
         try {
-            dataManager.loadFromFile(path);//Загружаем данные из файла
-            currentFilePath = path;//Запоминаем файл как текущий
-            refreshAll();//Обновляем таблицы
-            alerts.showInfo("Loaded", "Data loaded from:\n" + path);//Показываем пользователю что все загрузилось
+            String message = storageMode.load(path);//Загружаем данные из выбранного режима
+            if (!storageMode.isDatabase()) {
+                currentFilePath = path;//Запоминаем файл как текущий
+            }
+            refreshAll(); //Обновляем таблицы
+            alerts.showInfo("Loaded", message);//Показываем пользователю что все загрузилось
             //Ловим если что ошибки
         } catch (IOException e) {
             alerts.showError("File error: " + e.getMessage());
@@ -173,16 +166,9 @@ public class MainController {
         updateActionButtons();
     }
 
+    // контроллер говорит режиму обновить данные
     private void refreshDataFromStorage() {
-        if (!databaseEnabled) {
-            return;
-        }
-
-        sequenceSynchronizer.syncAll();
-        authService.refreshFromRepository();
-        experimentService.refreshFromRepository();
-        runService.refreshFromRepository();
-        resultService.refreshFromRepository();
+        storageMode.refresh();
     }
 
     //Метод обновляет таблицу прогонов для выбранного эксперимента
@@ -459,8 +445,8 @@ public class MainController {
 
     //Метод сохраняет данные в текущий JSON-файл
     private void save() throws IOException {
-        if (databaseEnabled) {
-            alerts.showInfo("PostgreSQL", "Data is stored automatically in PostgreSQL.");
+        if (storageMode.isDatabase()) {
+            alerts.showInfo(storageMode.getName(), storageMode.save(currentFilePath));
             return;
         }
         //Проверяем текущий файл
@@ -471,15 +457,15 @@ public class MainController {
         }
 
         //Если текущий файл есть сохраняем туда
-        dataManager.saveToFile(currentFilePath);
+        String message = storageMode.save(currentFilePath);
         //Показываем сообщение об успехе
-        alerts.showInfo("Saved", "Data saved to:\n" + currentFilePath);
+        alerts.showInfo("Saved", message);
     }
 
     //Метод открывает окно выбора файла, сохраняет данные туда и делает этот путь текущим
     private void saveAs() throws IOException {
-        if (databaseEnabled) {
-            alerts.showInfo("PostgreSQL", "Data is stored automatically in PostgreSQL.");
+        if (storageMode.isDatabase()) {
+            alerts.showInfo(storageMode.getName(), storageMode.save(currentFilePath));
             return;
         }
         //Создаем окно выбора файлов
@@ -495,16 +481,16 @@ public class MainController {
         //Запоминаем выбранный путь как текущий файл
         currentFilePath = file.getAbsolutePath();
         //Сохраняем данные в этот файл
-        dataManager.saveToFile(currentFilePath);
+        String message = storageMode.save(currentFilePath);
 
         //Сообщение об успехе
-        alerts.showInfo("Saved", "Data saved to:\n" + currentFilePath);
+        alerts.showInfo("Saved", message);
     }
 
     //Метод открывает окно выбора JSON-файла, загружает данные через DataManager, обновляет таблицы
     private void load() throws IOException {
-        if (databaseEnabled) {
-            alerts.showInfo("PostgreSQL", "Data is loaded automatically from PostgreSQL at startup.");
+        if (storageMode.isDatabase()) {
+            alerts.showInfo(storageMode.getName(), storageMode.load(currentFilePath));
             return;
         }
         //Создаем окно выбора файла
@@ -518,7 +504,7 @@ public class MainController {
         }
 
         //Загружаем данные из выбранного JSON-файла
-        dataManager.loadFromFile(file.getAbsolutePath());
+        String message = storageMode.load(file.getAbsolutePath());
         //Запоминаем файл как текущий
         currentFilePath = file.getAbsolutePath();
 
@@ -526,7 +512,7 @@ public class MainController {
         refreshAll();
 
         //Сообщение об успехе
-        alerts.showInfo("Loaded", "Data loaded from:\n" + currentFilePath);
+        alerts.showInfo("Loaded", message);
     }
 
     //Метод создает окно выбора файла
