@@ -16,6 +16,7 @@ public class ApplicationServices {
     private final DataManager dataManager;
     private final ExperimentSummaryService summaryService;
     private final DatabaseSequenceSynchronizer sequenceSynchronizer;
+    private final StorageMode storageMode;
 
     public ApplicationServices() {
 //        читаем db.properties -> создаем объект Database; узнаем статус БД (on/off)
@@ -47,6 +48,12 @@ public class ApplicationServices {
         this.labService = new LabService(experimentService, runService, runResultService);
         this.dataManager = new DataManager(experimentService, runService, runResultService, authService);
         this.summaryService = new ExperimentSummaryService(experimentService, runService, runResultService);
+
+        if (databaseEnabled) {
+            this.storageMode = new DatabaseStorageMode(sequenceSynchronizer, authService, experimentService, runService, runResultService);
+        } else {
+            this.storageMode = new FileStorageMode(dataManager);
+        }
     }
 
     public boolean isDatabaseEnabled() {
@@ -78,5 +85,8 @@ public class ApplicationServices {
     }
     public DatabaseSequenceSynchronizer getSequenceSynchronizer() {
         return sequenceSynchronizer;
+    }
+    public StorageMode getStorageMode() {
+        return storageMode;
     }
 }
