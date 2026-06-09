@@ -2,21 +2,25 @@ package ui.view;
 
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.ToolBar;
-import javafx.scene.control.Label;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import ui.viewmodel.ExperimentRow;
 import ui.viewmodel.RunResultRow;
 import ui.viewmodel.RunRow;
-
+import java.util.function.BiConsumer;
 
 public class MainView {
     //root главный контейнер всего окна в нем будут снопки и 3 таблицы
@@ -55,6 +59,8 @@ public class MainView {
 
     // показываем текущего юзера, под которым открыт интерфейс
     private final Label currentUserLabel = new Label("User: -");
+
+    private BiConsumer<String, String> previewRequestHandler = (title, text) -> {};
 
     //Настраиваем интерфейс: таблицу эксперементов,прогонов,результатов и собираем все элементы в одно окно
     public MainView() {
@@ -157,6 +163,10 @@ public class MainView {
         currentUserLabel.setText(text);
     }
 
+    public void setPreviewRequestHandler(BiConsumer<String, String> previewRequestHandler) {
+        this.previewRequestHandler = previewRequestHandler;
+    }
+
     //Собираем внешний вид нашего окна
     private void configureLayout() {
         //Панель кнопок верхних
@@ -220,8 +230,9 @@ public class MainView {
             TableColumn<ExperimentRow, String> descriptionColumn = new TableColumn<>("Description");
              //Берем значение через гетер
             descriptionColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
+            configurePreviewColumn(descriptionColumn, "Experiment description");
 
-            //Создаем колонку owner, она работает со строками ExperimentRow
+        //Создаем колонку owner, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, Long> ownerColumn = new TableColumn<>("Owner ID");
             //Берем значение через гетер
             ownerColumn.setCellValueFactory(new PropertyValueFactory<>("ownerId"));
@@ -331,6 +342,7 @@ public class MainView {
             TableColumn<RunResultRow, String> commentColumn = new TableColumn<>("Comment");
             //Берем значение через гетер
             commentColumn.setCellValueFactory(new PropertyValueFactory<>("comment"));
+            configurePreviewColumn(commentColumn, "Result comment");
 
             //Создаем колонку created, она работает со строками RunResultRow
             TableColumn<RunResultRow, String> createdColumn = new TableColumn<>("Created");
@@ -351,9 +363,58 @@ public class MainView {
             resultTable.getColumns().add(commentColumn);
             resultTable.getColumns().add(createdColumn);
             resultTable.getColumns().add(updatedColumn);
-
             resultTable.setTableMenuButtonVisible(true);
-        }
     }
+
+    private <T> void configurePreviewColumn(TableColumn<T, String> column, String previewTitle) {
+        column.setCellFactory(tableColumn -> new TableCell<>() {
+            private final Label textLabel = new Label();
+            private final Button previewButton = new Button("View");
+            private final HBox content = new HBox(4, textLabel, previewButton);
+
+            {
+                textLabel.setMaxWidth(Double.MAX_VALUE);
+                textLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+                HBox.setHgrow(textLabel, Priority.ALWAYS);
+
+                previewButton.setVisible(false);
+                previewButton.setManaged(false);
+                previewButton.setOnAction(event -> previewRequestHandler.accept(previewTitle, getItem()));
+
+                content.setAlignment(Pos.CENTER_LEFT);
+
+                hoverProperty().addListener((observable, oldValue, hovered) -> updatePreviewButton());
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (empty) {
+                    setGraphic(null);
+                    return;
+                }
+
+                textLabel.setText(valueOrEmpty(item));
+                setGraphic(content);
+                updatePreviewButton();
+            }
+
+            private void updatePreviewButton() {
+                boolean shouldShow = isHover() && getItem() != null && !getItem().isBlank();
+                previewButton.setVisible(shouldShow);
+                previewButton.setManaged(shouldShow);
+            }
+        });
+    }
+
+    private String valueOrEmpty(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value;
+    }
+}
 
 

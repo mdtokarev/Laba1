@@ -1,6 +1,5 @@
 package ui.controller;
 
-import database.DatabaseSequenceSynchronizer;
 import domain.Experiment;
 import domain.Run;
 import domain.RunResult;
@@ -98,6 +97,8 @@ public class MainController {
     }
 
     private void connectActions() {
+        view.setPreviewRequestHandler((title, text) -> runSafely(() -> dialogs.showTextPreview(title, text)));
+
         //Когда нажали Refresh, вызывается refreshAll
         view.getRefreshButton().setOnAction(event -> runSafely(this::refreshAll));
 

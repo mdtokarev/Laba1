@@ -179,6 +179,22 @@ public class EntityDialogs {
         return dialog.showAndWait();
     }
 
+    public void showTextPreview(String title, String text) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText(null);
+
+        TextArea previewArea = new TextArea(valueOrEmpty(text));
+        previewArea.setEditable(false);
+        previewArea.setWrapText(true);
+        previewArea.setPrefRowCount(12);
+        previewArea.setPrefColumnCount(48);
+
+        dialog.getDialogPane().setContent(previewArea);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+    }
+
     private String defaultUnitFor(MeasurementParam param) {
         if (param == MeasurementParam.Temperature) {
             return "°C";
