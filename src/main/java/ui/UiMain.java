@@ -40,7 +40,8 @@ public class UiMain extends Application {
                 services.getSummaryService(),
                 authService,
                 services.getAccessControlService(),
-                storageMode
+                storageMode,
+                () -> authenticate(authService, dataManager, storageMode, alerts)
         );
 
         Scene scene = new Scene(controller.getRoot(), 1200, 720);

@@ -57,6 +57,8 @@ public class MainView {
     //Кнопка для статистики
     private final Button summaryButton = new Button("Summary");
 
+    private final Button logoutButton = new Button("Logout");
+
     // показываем текущего юзера, под которым открыт интерфейс
     private final Label currentUserLabel = new Label("User: -");
 
@@ -158,6 +160,10 @@ public class MainView {
         return summaryButton;
     }
 
+    public Button getLogoutButton() {
+        return logoutButton;
+    }
+
     // метод обновляет надпись с текущим пользователем в верхней панели
     public void setCurrentUserText(String text) {
         currentUserLabel.setText(text);
@@ -176,7 +182,8 @@ public class MainView {
                 saveAsButton,
                 loadButton,
                 summaryButton,
-                currentUserLabel);
+                currentUserLabel,
+                logoutButton);
 
         //Панель кнопок эксперемента
         ToolBar experimentToolbar = new ToolBar(addExperimentButton, editExperimentButton, deleteExperimentButton);

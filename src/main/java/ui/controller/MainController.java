@@ -23,6 +23,7 @@ import validation.ValidationException;
 import java.io.File;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 
 
 public class MainController {
@@ -36,6 +37,7 @@ public class MainController {
     private final AuthService authService;
     private final AccessControlService accessControlService;
     private final StorageMode storageMode;
+    private final BooleanSupplier authenticateAgain;
 
     private final MainView view;
     private final UiModelMapper mapper;
@@ -48,7 +50,8 @@ public class MainController {
 
     public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService,
                           LabService labService, ExperimentSummaryService summaryService,
-                          AuthService authService, AccessControlService accessControlService, StorageMode storageMode) {
+                          AuthService authService, AccessControlService accessControlService, StorageMode storageMode,
+                          BooleanSupplier authenticateAgain) {
         this.stage = stage;
         this.experimentService = experimentService;
         this.runService = runService;
@@ -58,6 +61,7 @@ public class MainController {
         this.authService = authService;
         this.accessControlService = accessControlService;
         this.storageMode = storageMode;
+        this.authenticateAgain = authenticateAgain;
 
         this.view = new MainView();
         this.mapper = new UiModelMapper();
@@ -120,6 +124,7 @@ public class MainController {
         view.getDeleteResultButton().setOnAction(event -> runSafely(this::deleteResult));
 
         view.getSummaryButton().setOnAction(event -> runSafely(this::showSummary));
+        view.getLogoutButton().setOnAction(event -> runSafely(this::logout));
 
         //Когда пользователь выбирает эксперимент, обновляется таблица прогонов
         view.getExperimentTable().getSelectionModel().selectedItemProperty()
@@ -145,6 +150,16 @@ public class MainController {
                         oldValue, newValue) -> {
             updateActionButtons();
         });
+    }
+
+    private void logout() {
+        authService.logout();
+        if (!authenticateAgain.getAsBoolean()) {
+            stage.close();
+            return;
+        }
+        view.setCurrentUserText("User: " + authService.requireCurrentUser().getLogin());
+        refreshAll();
     }
 
     //Метод полностью обновляет таблицу экспериментов из ExperimentService
