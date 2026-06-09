@@ -222,8 +222,9 @@ public class MainView {
             experimentTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             //Если данных нет, выскакивает текст
             experimentTable.setPlaceholder(new javafx.scene.control.Label("No experiments"));
+            experimentTable.setTableMenuButtonVisible(true);
 
-            //Создаем колонку ID, она работает со строками ExperimentRow
+        //Создаем колонку ID, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, Long> idColumn = new TableColumn<>("ID");
             //Берем значение через гетер
             idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
@@ -254,16 +255,16 @@ public class MainView {
             //Берем значение через гетер
             updatedColumn.setCellValueFactory(new PropertyValueFactory<>("updatedAt"));
 
-            //Добавляем колонки в таблицу
+            hideTechnicalDateColumns(createdColumn, updatedColumn);
+
+        //Добавляем колонки в таблицу
             experimentTable.getColumns().add(idColumn);
             experimentTable.getColumns().add(nameColumn);
             experimentTable.getColumns().add(descriptionColumn);
             experimentTable.getColumns().add(ownerColumn);
             experimentTable.getColumns().add(createdColumn);
             experimentTable.getColumns().add(updatedColumn);
-
-            experimentTable.setTableMenuButtonVisible(true);
-        }
+     }
 
     //Настраиваем таблицу прогонов
         private void configureRunTable() {
@@ -271,6 +272,7 @@ public class MainView {
             runTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             //Если данных нет, выскакивает текст
             runTable.setPlaceholder(new javafx.scene.control.Label("No runs"));
+            runTable.setTableMenuButtonVisible(true);
 
             //Создаем колонку ID, она работает со строками RunRow
             TableColumn<RunRow, Long> idColumn = new TableColumn<>("ID");
@@ -302,6 +304,8 @@ public class MainView {
             //Берем значение через гетер
             updatedColumn.setCellValueFactory(new PropertyValueFactory<>("updatedAt"));
 
+            hideTechnicalDateColumns(createdColumn, updatedColumn);
+
             //Добавляем колонки в таблицу
             runTable.getColumns().add(idColumn);
             runTable.getColumns().add(experimentIdColumn);
@@ -309,9 +313,7 @@ public class MainView {
             runTable.getColumns().add(operatorColumn);
             runTable.getColumns().add(createdColumn);
             runTable.getColumns().add(updatedColumn);
-
-            runTable.setTableMenuButtonVisible(true);
-        }
+     }
 
     //Настраиваем таблицу результатов прогонов
         private void configureResultTable() {
@@ -319,6 +321,7 @@ public class MainView {
             resultTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             //Если данных нет, выскакивает текст
             resultTable.setPlaceholder(new javafx.scene.control.Label("No results"));
+            resultTable.setTableMenuButtonVisible(true);
 
             //Создаем колонку id, она работает со строками RunResultRow
             TableColumn<RunResultRow, Long> idColumn = new TableColumn<>("ID");
@@ -361,6 +364,8 @@ public class MainView {
             //Берем значение через гетер
             updatedColumn.setCellValueFactory(new PropertyValueFactory<>("updatedAt"));
 
+            hideTechnicalDateColumns(createdColumn, updatedColumn);
+
             //Добавляем колонки в таблицу
             resultTable.getColumns().add(idColumn);
             resultTable.getColumns().add(runIdColumn);
@@ -370,7 +375,11 @@ public class MainView {
             resultTable.getColumns().add(commentColumn);
             resultTable.getColumns().add(createdColumn);
             resultTable.getColumns().add(updatedColumn);
-            resultTable.setTableMenuButtonVisible(true);
+    }
+
+    private void hideTechnicalDateColumns(TableColumn<?, String> createdColumn, TableColumn<?, String> updatedColumn) {
+        createdColumn.setVisible(false);
+        updatedColumn.setVisible(false);
     }
 
     private <T> void configurePreviewColumn(TableColumn<T, String> column, String previewTitle) {
