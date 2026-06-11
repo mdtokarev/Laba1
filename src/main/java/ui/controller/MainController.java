@@ -3,6 +3,7 @@ package ui.controller;
 import domain.Experiment;
 import domain.Run;
 import domain.RunResult;
+import domain.User;
 import javafx.collections.FXCollections;
 import javafx.scene.Parent;
 import javafx.stage.FileChooser;
@@ -22,7 +23,7 @@ import validation.ValidationException;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BooleanSupplier;
 
 
@@ -45,6 +46,8 @@ public class MainController {
     private final EntityDialogs dialogs;
 
     private String currentFilePath;
+    // отдельно будем хранить список всех экспериментов (очистка поиска вернет все строки корректно)
+    private List<ExperimentRow> allExperimentRows = List.of();
 
 //    запускать в окно Ui только зареганных юзеров, удален костыль с owner_id = 1. см строка 188
 
@@ -125,6 +128,9 @@ public class MainController {
 
         view.getSummaryButton().setOnAction(event -> runSafely(this::showSummary));
         view.getLogoutButton().setOnAction(event -> runSafely(this::logout));
+        // поле поиска реагирует на каждый новый символ и показывает соответствующий список
+        view.getSearchField().textProperty().addListener((observable, oldValue,
+                                                          newValue) -> runSafely(this::searchExperiments));
 
         //Когда пользователь выбирает эксперимент, обновляется таблица прогонов
         view.getExperimentTable().getSelectionModel().selectedItemProperty()
@@ -170,8 +176,9 @@ public class MainController {
 
         refreshDataFromStorage();
 
-        //Каждый эксперемнт переводим в ExperimentRow, делаем список для таблицы, кладем данные в таблицу
-        view.setExperiments(FXCollections.observableArrayList(experimentService.list().stream().map(mapper::toExperimentRow).toList()));
+        // после refresh заново строим весь список экспериментов; применяем текущий текст поиска к обновленным данным
+        allExperimentRows = buildExperimentRows();
+        applyExperimentFilter();
         selectExperimentById(selectedExperimentId);
 
         //После обновления эксперементов обновляем зависимые таблицы
@@ -185,6 +192,54 @@ public class MainController {
     // контроллер говорит режиму обновить данные
     private void refreshDataFromStorage() {
         storageMode.refresh();
+    }
+
+    // метод собирает строки таблицы экспериментов с заданным ownerLogin
+    private List<ExperimentRow> buildExperimentRows() {
+        Map<Long, String> ownerLogins = new HashMap<>();
+        for (User user : authService.list()) {
+            ownerLogins.put(user.getId(), user.getLogin()); // заполняем Map id и login юзера
+        }
+
+        // для каждого exp ищем ownerLogin по ownerId. Если логина нет - показываем id
+        return experimentService.list().stream()
+                .map(experiment -> mapper.toExperimentRow(experiment, ownerLogins.getOrDefault(experiment.getOwnerId(), String.valueOf(experiment.getOwnerId()))))
+                .toList();
+    }
+
+    // метод применяет текущий поиск к полному списку экспериментов
+    private void applyExperimentFilter() {
+        // берем текст поиска, убираем пробелы по краям, приводим к нижнему регистру
+        String query = view.getSearchField().getText().trim().toLowerCase(Locale.ROOT);
+        if (query.isEmpty()) {
+            // если поиск пустой - показываем все эксперименты
+            view.setExperiments(FXCollections.observableArrayList(allExperimentRows));
+            return;
+        }
+
+        view.setExperiments(FXCollections.observableArrayList(
+                // если запрос не пустой - фильтруем весь список
+                allExperimentRows.stream()
+                        // оставляем, если содержит название/имя владельца
+                        .filter(row -> containsIgnoreCase(row.getName(), query)
+                                || containsIgnoreCase(row.getOwnerLogin(), query))
+                        .toList()
+        ));
+    }
+
+    // метод вызывается при вводе текста
+    private void searchExperiments() {
+        Long selectedExperimentId = getSelectedExperimentId(); // запоминаем выбранный эксперимент перед фильтрацией
+        applyExperimentFilter();
+        selectExperimentById(selectedExperimentId); // если эксп остался в фильтре - выделяем его снова
+        refreshRunsForSelectedExperiment();
+        updateActionButtons();
+    }
+
+    // вспомогательный метод для поиска без учета регистра
+    private boolean containsIgnoreCase(String value, String query) {
+        // если значение не null, приводим его к н.р. и проверяем неполное совпадение через contains
+        return value != null && value.toLowerCase(Locale.ROOT).contains(query);
     }
 
     //Метод обновляет таблицу прогонов для выбранного эксперимента

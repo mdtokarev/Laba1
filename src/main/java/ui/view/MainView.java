@@ -4,14 +4,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.OverrunStyle;
-import javafx.scene.control.SplitPane;
-import javafx.scene.control.TableCell;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.ToolBar;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -43,6 +36,8 @@ public class MainView {
     private final Button addExperimentButton = new Button("Add Experiment");
     private final Button editExperimentButton = new Button("Edit Experiment");
     private final Button deleteExperimentButton = new Button("Delete Experiment");
+
+    private final TextField searchField = new TextField();
 
     //Кнопки для прогонов
     private final Button addRunButton = new Button("Add Run");
@@ -132,6 +127,10 @@ public class MainView {
         return deleteExperimentButton;
     }
 
+    public TextField getSearchField() {
+        return searchField;
+    }
+
     public Button getAddRunButton() {
         return addRunButton;
     }
@@ -175,6 +174,9 @@ public class MainView {
 
     //Собираем внешний вид нашего окна
     private void configureLayout() {
+        // подсказка на пустом поле
+        searchField.setPromptText("Search");
+
         //Панель кнопок верхних
         ToolBar fileToolbar = new ToolBar(
                 refreshButton,
@@ -186,7 +188,8 @@ public class MainView {
                 logoutButton);
 
         //Панель кнопок эксперемента
-        ToolBar experimentToolbar = new ToolBar(addExperimentButton, editExperimentButton, deleteExperimentButton);
+        ToolBar experimentToolbar = new ToolBar(addExperimentButton, editExperimentButton, deleteExperimentButton,
+                                                new Label("Search:"), searchField);
 
         //Панель кнопок прогонов
         ToolBar runToolbar = new ToolBar(addRunButton, editRunButton, deleteRunButton);
@@ -195,9 +198,9 @@ public class MainView {
         ToolBar resultToolbar = new ToolBar(addResultButton, editResultButton, deleteResultButton);
 
         //Создаем вертикальный блок для эксперементов, прогонов, результатов
-        VBox experimentBox = new VBox(experimentToolbar, experimentTable);
-        VBox runBox = new VBox(runToolbar, runTable);
-        VBox resultBox = new VBox(resultToolbar, resultTable);
+        VBox experimentBox = new VBox(experimentToolbar, createTableTitle("Experiments"), experimentTable);
+        VBox runBox = new VBox(runToolbar, createTableTitle("Runs"), runTable);
+        VBox resultBox = new VBox(resultToolbar, createTableTitle("Results"), resultTable);
 
         //Растягиваем таблицу эксперементов, прогонов, результатов по высоте
         VBox.setVgrow(experimentTable, Priority.ALWAYS);
@@ -228,8 +231,9 @@ public class MainView {
             TableColumn<ExperimentRow, Long> idColumn = new TableColumn<>("ID");
             //Берем значение через гетер
             idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+            configureIdColumn(idColumn, 56);
 
-            //Создаем колонку name, она работает со строками ExperimentRow
+        //Создаем колонку name, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, String> nameColumn = new TableColumn<>("Name");
             //Берем значение через гетер
             nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
@@ -244,8 +248,14 @@ public class MainView {
             TableColumn<ExperimentRow, Long> ownerColumn = new TableColumn<>("Owner ID");
             //Берем значение через гетер
             ownerColumn.setCellValueFactory(new PropertyValueFactory<>("ownerId"));
+            configureIdColumn(ownerColumn, 80);
+            ownerColumn.setVisible(false);
 
-            //Создаем колонку created, она работает со строками ExperimentRow
+            TableColumn<ExperimentRow, String> ownerLoginColumn = new TableColumn<>("Owner Login");
+            ownerLoginColumn.setCellValueFactory(new PropertyValueFactory<>("ownerLogin"));
+            ownerLoginColumn.setMinWidth(110);
+
+        //Создаем колонку created, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, String> createdColumn = new TableColumn<>("Created");
              //Берем значение через гетер
             createdColumn.setCellValueFactory(new PropertyValueFactory<>("createdAt"));
@@ -260,6 +270,7 @@ public class MainView {
         //Добавляем колонки в таблицу
             experimentTable.getColumns().add(idColumn);
             experimentTable.getColumns().add(nameColumn);
+            experimentTable.getColumns().add(ownerLoginColumn);
             experimentTable.getColumns().add(descriptionColumn);
             experimentTable.getColumns().add(ownerColumn);
             experimentTable.getColumns().add(createdColumn);
@@ -278,11 +289,13 @@ public class MainView {
             TableColumn<RunRow, Long> idColumn = new TableColumn<>("ID");
             //Берем значение через гетер
             idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+            configureIdColumn(idColumn, 56);
 
             //Создаем колонку experimentId, она работает со строками RunRow
             TableColumn<RunRow, Long> experimentIdColumn = new TableColumn<>("Experiment ID");
             //Берем значение через гетер
             experimentIdColumn.setCellValueFactory(new PropertyValueFactory<>("experimentId"));
+            configureIdColumn(experimentIdColumn, 96);
 
             //Создаем колонку name, она работает со строками RunRow
             TableColumn<RunRow, String> nameColumn = new TableColumn<>("Name");
@@ -327,11 +340,13 @@ public class MainView {
             TableColumn<RunResultRow, Long> idColumn = new TableColumn<>("ID");
             //Берем значение через гетер
             idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+            configureIdColumn(idColumn, 56);
 
             //Создаем колонку runId, она работает со строками RunResultRow
             TableColumn<RunResultRow, Long> runIdColumn = new TableColumn<>("Run ID");
             //Берем значение через гетер
             runIdColumn.setCellValueFactory(new PropertyValueFactory<>("runId"));
+            configureIdColumn(runIdColumn, 72);
 
             //Создаем колонку  param, она работает со строками RunResultRow
             TableColumn<RunResultRow, String> paramColumn = new TableColumn<>("Param");
@@ -375,6 +390,22 @@ public class MainView {
             resultTable.getColumns().add(commentColumn);
             resultTable.getColumns().add(createdColumn);
             resultTable.getColumns().add(updatedColumn);
+    }
+
+    // метод принимает текст заголовка
+    private Label createTableTitle(String title) {
+        Label label = new Label(title.toUpperCase());
+        label.setMaxWidth(Double.MAX_VALUE);// растягивание по ширине
+        label.setAlignment(Pos.CENTER); // центровка
+        label.setStyle("-fx-font-weight: bold; -fx-padding: 6 0 4 2;"); // вид текста: жирный+отступы
+        return label;
+    }
+
+    // принимает колонку с числовым id и желаемую ширину
+    private void configureIdColumn(TableColumn<?, Long> column, double width) {
+        column.setMinWidth(width); // колонка не станет слишком узкой
+        column.setPrefWidth(width); // норм ширина по умолчанию
+        column.setMaxWidth(width + 16); // колонка не станет слишком широкой
     }
 
     private void hideTechnicalDateColumns(TableColumn<?, String> createdColumn, TableColumn<?, String> updatedColumn) {

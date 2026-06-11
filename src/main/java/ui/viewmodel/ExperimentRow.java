@@ -6,14 +6,17 @@ public class ExperimentRow {
     private final String name;
     private final String description;
     private final long ownerId;
+    private final String ownerLogin;
     private final String createdAt;
     private final String updatedAt;
 
-    public  ExperimentRow(long id, String name, String description, long ownerId, String createdAt, String updated) {
+    public  ExperimentRow(long id, String name, String description, long ownerId, String ownerLogin,
+                          String createdAt, String updated) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.ownerId = ownerId;
+        this.ownerLogin = ownerLogin;
         this.createdAt = createdAt;
         this.updatedAt = updated;
     }
@@ -30,6 +33,9 @@ public class ExperimentRow {
     }
     public long getOwnerId() {
         return  ownerId;
+    }
+    public String getOwnerLogin() {
+        return ownerLogin;
     }
     public String getCreatedAt() {
         return createdAt;
