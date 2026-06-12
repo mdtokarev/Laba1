@@ -37,6 +37,8 @@ public class ExperimentService {
     }
 
     public Experiment add(String name, String description, long ownerId) {
+        validateExperimentData(name, description, ownerId);
+
         if (experimentRepository != null) {
 //            создаем эксперимент через БД, получаем готовый Experiment
             Experiment exp = experimentRepository.insert(name, description, ownerId);
@@ -50,6 +52,10 @@ public class ExperimentService {
         Experiment exp = new Experiment(id, name, description, ownerId);
         experiments.put(id, exp);
         return exp;
+    }
+
+    private void validateExperimentData(String name, String description, long ownerId) {
+        new Experiment(1, name, description, ownerId);
     }
 
     public void remove(long id) {

@@ -36,6 +36,7 @@ public class RunService {
     public Run add(long experimentId, String name, String operatorName) {
 //        Перед добавлением проверяем, что "родительский" Experiment существует
         experimentService.getById(experimentId);
+        validateRunData(experimentId, name, operatorName);
 
         Run run;
         if (runRepository != null) {
@@ -48,6 +49,10 @@ public class RunService {
         }
         runs.put(run.getId(), run);
         return run;
+    }
+
+    private void validateRunData(long experimentId, String name, String operatorName) {
+        new Run(1, experimentId, name, operatorName);
     }
 
     public void remove(long id) {

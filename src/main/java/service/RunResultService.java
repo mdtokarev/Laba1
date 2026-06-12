@@ -37,6 +37,7 @@ public class RunResultService {
     public RunResult add(long runId, MeasurementParam param, double value, String unit, String comment) {
 //        Проверка существования "родительского" Run перед добавлением его результата
         runService.getById(runId);
+        validateRunResultData(runId, param, value, unit, comment);
 
         RunResult result;
         if (runResultRepository != null) {
@@ -49,6 +50,10 @@ public class RunResultService {
         }
         results.put(result.getId(), result);
         return result;
+    }
+
+    private void validateRunResultData(long runId, MeasurementParam param, double value, String unit, String comment) {
+        new RunResult(1, runId, param, value, unit, comment);
     }
 
     public void remove(long id) {
