@@ -485,33 +485,14 @@ public class MainController {
 
     //Метод показывает статистику по выбранному эксперименту
     private void showSummary() {
-        //Проверяем выбран ли эксперемент
+        //Проверяем выбран ли эксперимент
         ExperimentRow selected = requireSelectedExperiment();
 
-        //Вызываем сервис статистики
+        // собираем summary по выбранному эксперименту
         ExperimentSummary summary = summaryService.buildForExperiment(selected.getId());
 
-        //Создаем объект для сборки текст
-        StringBuilder text = new StringBuilder();
-        //Добавляем в текст название эксперемента
-        text.append("Experiment: ").append(summary.getExperimentName()).append("\n\n");
-
-        //Если нет результатов то No results
-        if (summary.getStatistics().isEmpty()) {
-            text.append("No results");
-            //Если статистика есть проходимся по каждому параметру и добавляем их
-        } else {
-            for (ParamStatistics statistics : summary.getStatistics()) {
-                text.append(statistics.getParam()).append("\n");
-                text.append("Count: ").append(statistics.getCount()).append("\n");
-                text.append("Min: ").append(statistics.getMin()).append("\n");
-                text.append("Max: ").append(statistics.getMax()).append("\n");
-                text.append("Average: ").append(statistics.getAverage()).append("\n\n");
-            }
-        }
-
-        //Показываем окно со статистикой
-        alerts.showInfo("Summary", text.toString());
+        //Показываем окно с текстовой статистикой и графиком
+        dialogs.showSummaryDialog(summary);
     }
 
     //Метод сохраняет данные в текущий JSON-файл

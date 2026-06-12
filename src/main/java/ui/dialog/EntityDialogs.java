@@ -1,13 +1,17 @@
 package ui.dialog;
 
 import domain.MeasurementParam;
+import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import service.ExperimentSummary;
+import validation.ValidationException;
 
 import java.util.List;
 import java.util.Optional;
@@ -121,7 +125,7 @@ public class EntityDialogs {
         // выпадающий список единиц измерения
         ComboBox<String> unitBox = new ComboBox<>();
         configureUnitsFor(unitBox, paramBox.getValue());
-        unitBox.setEditable(true);
+        unitBox.setEditable(false);
 
         if (valueOrEmpty(unit).isBlank()) {
             unitBox.setValue(defaultUnitFor(paramBox.getValue()));
@@ -166,10 +170,22 @@ public class EntityDialogs {
         dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CANCEL);
 
+        Node okButton = dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.addEventFilter(ActionEvent.ACTION, event -> {
+            try {
+                parseValue(valueField.getText());
+            } catch (ValidationException e) {
+                new AlertDialogs().showError(e.getMessage());
+                valueField.requestFocus();
+                valueField.selectAll();
+                event.consume();
+            }
+        });
+
         //Говорим что вернуть поле закрытия окна, если ок то создаем объект с нововеденными данными, если Cancel то нечего
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
-                double parsedValue = Double.parseDouble(valueField.getText());
+                double parsedValue = parseValue(valueField.getText());
                 return new RunResultFormData(paramBox.getValue(), parsedValue, unitBox.getValue(), commentArea.getText());
             }
             return null;
@@ -177,6 +193,19 @@ public class EntityDialogs {
 
         //Возвращаем окно и результат
         return dialog.showAndWait();
+    }
+
+    private double parseValue(String value) {
+        String trimmedValue = value.trim();
+        if (trimmedValue.isEmpty()) {
+            throw new ValidationException("Value can't be empty");
+        }
+
+        try {
+            return Double.parseDouble(trimmedValue);
+        } catch (NumberFormatException e) {
+            throw new ValidationException("Value must be a number");
+        }
     }
 
     public void showTextPreview(String title, String text) {
@@ -193,6 +222,10 @@ public class EntityDialogs {
         dialog.getDialogPane().setContent(previewArea);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         dialog.showAndWait();
+    }
+
+    public void showSummaryDialog(ExperimentSummary summary) {
+        new SummaryDialog().show(summary);
     }
 
     private String defaultUnitFor(MeasurementParam param) {

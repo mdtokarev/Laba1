@@ -31,7 +31,8 @@ public final class RunResult {
         validateRunId(runId);
         validateParam(param);
         validateValueByParam(param, value);
-        validateUnit(unit);
+        String normalizedUnit = normalizeUnit(unit);
+        validateUnit(normalizedUnit);
         validateComment(comment);
         validateTimestamps(createdAt, updatedAt);
 
@@ -39,7 +40,7 @@ public final class RunResult {
         this.runId = runId;
         this.param = param;
         this.value = value;
-        this.unit = unit;
+        this.unit = normalizedUnit;
         this.comment = comment;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -88,6 +89,20 @@ public final class RunResult {
             throw new ValidationException("Unit too long");
     }
 
+    private static String normalizeUnit(String unit) {
+        if (unit == null) {
+            return null;
+        }
+
+        return unit.trim()
+                .replace("В°", "°")
+                .replace("Â°", "°")
+                .replace('К', 'K')
+                .replace('к', 'k')
+                .replace('С', 'C')
+                .replace('с', 'c');
+    }
+
     private static void validateComment(String comment) {
         if (comment != null && comment.length() > 128)
             throw new ValidationException("Comment too long");
@@ -110,8 +125,9 @@ public final class RunResult {
     }
 
     public void setUnit(String unit) {
-        validateUnit(unit);
-        this.unit = unit;
+        String normalizedUnit = normalizeUnit(unit);
+        validateUnit(normalizedUnit);
+        this.unit = normalizedUnit;
         this.updatedAt = Instant.now();
     }
 
@@ -124,14 +140,15 @@ public final class RunResult {
     /*    Выносим метод обновления из сервиса в доменный класс, тк он должен
           безопасно и корректно менять своё состояние, и не имеет отношения к коллекции */
     public void update(MeasurementParam param, double value, String unit, String comment) {
+        String normalizedUnit = normalizeUnit(unit);
         validateParam(param);
         validateValueByParam(param, value);
-        validateUnit(unit);
+        validateUnit(normalizedUnit);
         validateComment(comment);
 
         this.param = param;
         this.value = value;
-        this.unit = unit;
+        this.unit = normalizedUnit;
         this.comment = comment;
         this.updatedAt = Instant.now();
     }
