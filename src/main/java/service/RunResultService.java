@@ -1,5 +1,6 @@
 package service;
 
+import database.RunResultRepository;
 import domain.MeasurementParam;
 import domain.RunResult;
 import validation.ValidationException;
@@ -13,9 +14,20 @@ public class RunResultService {
     private final RunService runService;
     //     Локальный счётчик ID, генерируется в сервисе
     private long nextId = 1;
+    private RunResultRepository runResultRepository;
 
+//    старый режим без БД - через TreeMap
     public RunResultService(RunService runService) {
+        this(runService, null);
+    }
+
+//    новый режим через БД, подключение через RunResultRepository
+    public RunResultService(RunService runService, RunResultRepository runResultRepository) {
         this.runService = runService;
+        this.runResultRepository = runResultRepository;
+        if (runResultRepository != null) {
+            loadRestored(runResultRepository.findAll());
+        }
     }
 
     private long generateNextId() {
@@ -25,24 +37,43 @@ public class RunResultService {
     public RunResult add(long runId, MeasurementParam param, double value, String unit, String comment) {
 //        Проверка существования "родительского" Run перед добавлением его результата
         runService.getById(runId);
+        validateRunResultData(runId, param, value, unit, comment);
 
-        long id = generateNextId();
-        RunResult result = new RunResult(id, runId, param, value, unit, comment);
-        results.put(id, result);
+        RunResult result;
+        if (runResultRepository != null) {
+//            если БД подключена то генерация id происходит в ней
+            result = runResultRepository.insert(runId, param, value, unit, comment);
+            nextId = Math.max(nextId, result.getId() + 1);
+        } else {
+            long id = generateNextId();
+            result = new RunResult(id, runId, param, value, unit, comment);
+        }
+        results.put(result.getId(), result);
         return result;
+    }
+
+    private void validateRunResultData(long runId, MeasurementParam param, double value, String unit, String comment) {
+        new RunResult(1, runId, param, value, unit, comment);
     }
 
     public void remove(long id) {
         if (!results.containsKey(id)) {
+//            если результата с таким номером нет - исключение
             throw new ValidationException("RunResult with id " + id + " not found");
+        }
+        if (runResultRepository != null) {
+            runResultRepository.delete(id);
         }
         results.remove(id);
     }
 
     public RunResult update(long id, MeasurementParam param, double value, String unit, String comment) {
-//        Сервис находит нужный объект по ID, обновление реализуется доменным объектом
+//        Сервис находит нужный объект по ID, обновление реализуется доменным объектом, репозиторий сохраняет новое состояние в БД
         RunResult result = getById(id);
         result.update(param, value, unit, comment);
+        if (runResultRepository != null) {
+            runResultRepository.update(result);
+        }
         return result;
     }
 
@@ -71,6 +102,14 @@ public class RunResultService {
     // Возвращаем копию коллекции для сохранения
     public List<RunResult> snapshot() {
         return new ArrayList<>(results.values());
+    }
+
+    public void refreshFromRepository() {
+        if (runResultRepository == null) {
+            return;
+        }
+
+        loadRestored(runResultRepository.findAll());
     }
 
 

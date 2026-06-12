@@ -12,7 +12,7 @@ class RunServiceTest {
     void shouldAddRunForExistingExperiment() {
         var experimentService = new ExperimentService();
         var runService = new RunService(experimentService);
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
 
         var run = runService.add(experiment.getId(), "run", "operator");
 
@@ -26,7 +26,7 @@ class RunServiceTest {
     void shouldGenerateDifferentIdsForDifferentRuns() {
         var experimentService = new ExperimentService();
         var runService = new RunService(experimentService);
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
 
         var first = runService.add(experiment.getId(), "run1", "operator1");
         var second = runService.add(experiment.getId(), "run2", "operator2");
@@ -41,7 +41,7 @@ class RunServiceTest {
     void listShouldKeepAllRuns() {
         var experimentService = new ExperimentService();
         var runService = new RunService(experimentService);
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
 
         var first = runService.add(experiment.getId(), "run1", "operator1");
         var second = runService.add(experiment.getId(), "run2", "operator2");
@@ -59,8 +59,8 @@ class RunServiceTest {
         var experimentService = new ExperimentService();
         var runService = new RunService(experimentService);
 
-        var firstExperiment = experimentService.add("exp1", "desc1", "user1");
-        var secondExperiment = experimentService.add("exp2", "desc2", "user2");
+        var firstExperiment = experimentService.add("exp1", "desc1", 1);
+        var secondExperiment = experimentService.add("exp2", "desc2", 2);
 
         var expectedRun = runService.add(firstExperiment.getId(), "run1", "operator1");
         runService.add(secondExperiment.getId(), "run2", "operator2");
@@ -77,7 +77,7 @@ class RunServiceTest {
         var experimentService = new ExperimentService();
         var runService = new RunService(experimentService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var run = runService.add(experiment.getId(), "old", "operator");
 
         var updated = runService.update(run.getId(), "new", "new operator");
@@ -93,7 +93,7 @@ class RunServiceTest {
         var experimentService = new ExperimentService();
         var runService = new RunService(experimentService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var run = runService.add(experiment.getId(), "run", "operator");
 
         runService.remove(run.getId());
@@ -119,7 +119,7 @@ class RunServiceTest {
         var experimentService = new ExperimentService();
         var runService = new RunService(experimentService);
 
-        var experiment = experimentService.add("exp", "desc", "user");
+        var experiment = experimentService.add("exp", "desc", 1);
         var first = runService.add(experiment.getId(), "run1", "operator1");
         var second = runService.add(experiment.getId(), "run2", "operator2");
 

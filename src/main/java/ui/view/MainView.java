@@ -2,20 +2,18 @@ package ui.view;
 
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
-import javafx.scene.control.Button;
-import javafx.scene.control.SplitPane;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.ToolBar;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import ui.viewmodel.ExperimentRow;
 import ui.viewmodel.RunResultRow;
 import ui.viewmodel.RunRow;
-
+import java.util.function.BiConsumer;
 
 public class MainView {
     //root главный контейнер всего окна в нем будут снопки и 3 таблицы
@@ -39,6 +37,8 @@ public class MainView {
     private final Button editExperimentButton = new Button("Edit Experiment");
     private final Button deleteExperimentButton = new Button("Delete Experiment");
 
+    private final TextField searchField = new TextField();
+
     //Кнопки для прогонов
     private final Button addRunButton = new Button("Add Run");
     private final Button editRunButton = new Button("Edit Run");
@@ -51,6 +51,13 @@ public class MainView {
 
     //Кнопка для статистики
     private final Button summaryButton = new Button("Summary");
+
+    private final Button logoutButton = new Button("Logout");
+
+    // показываем текущего юзера, под которым открыт интерфейс
+    private final Label currentUserLabel = new Label("User: -");
+
+    private BiConsumer<String, String> previewRequestHandler = (title, text) -> {};
 
     //Настраиваем интерфейс: таблицу эксперементов,прогонов,результатов и собираем все элементы в одно окно
     public MainView() {
@@ -120,6 +127,10 @@ public class MainView {
         return deleteExperimentButton;
     }
 
+    public TextField getSearchField() {
+        return searchField;
+    }
+
     public Button getAddRunButton() {
         return addRunButton;
     }
@@ -148,13 +159,37 @@ public class MainView {
         return summaryButton;
     }
 
+    public Button getLogoutButton() {
+        return logoutButton;
+    }
+
+    // метод обновляет надпись с текущим пользователем в верхней панели
+    public void setCurrentUserText(String text) {
+        currentUserLabel.setText(text);
+    }
+
+    public void setPreviewRequestHandler(BiConsumer<String, String> previewRequestHandler) {
+        this.previewRequestHandler = previewRequestHandler;
+    }
+
     //Собираем внешний вид нашего окна
     private void configureLayout() {
+        // подсказка на пустом поле
+        searchField.setPromptText("Search");
+
         //Панель кнопок верхних
-        ToolBar fileToolbar = new ToolBar(refreshButton, saveButton, saveAsButton, loadButton, summaryButton);
+        ToolBar fileToolbar = new ToolBar(
+                refreshButton,
+                saveButton,
+                saveAsButton,
+                loadButton,
+                summaryButton,
+                currentUserLabel,
+                logoutButton);
 
         //Панель кнопок эксперемента
-        ToolBar experimentToolbar = new ToolBar(addExperimentButton, editExperimentButton, deleteExperimentButton);
+        ToolBar experimentToolbar = new ToolBar(addExperimentButton, editExperimentButton, deleteExperimentButton,
+                                                new Label("Search:"), searchField);
 
         //Панель кнопок прогонов
         ToolBar runToolbar = new ToolBar(addRunButton, editRunButton, deleteRunButton);
@@ -163,9 +198,9 @@ public class MainView {
         ToolBar resultToolbar = new ToolBar(addResultButton, editResultButton, deleteResultButton);
 
         //Создаем вертикальный блок для эксперементов, прогонов, результатов
-        VBox experimentBox = new VBox(experimentToolbar, experimentTable);
-        VBox runBox = new VBox(runToolbar, runTable);
-        VBox resultBox = new VBox(resultToolbar, resultTable);
+        VBox experimentBox = new VBox(experimentToolbar, createTableTitle("Experiments"), experimentTable);
+        VBox runBox = new VBox(runToolbar, createTableTitle("Runs"), runTable);
+        VBox resultBox = new VBox(resultToolbar, createTableTitle("Results"), resultTable);
 
         //Растягиваем таблицу эксперементов, прогонов, результатов по высоте
         VBox.setVgrow(experimentTable, Priority.ALWAYS);
@@ -190,13 +225,15 @@ public class MainView {
             experimentTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             //Если данных нет, выскакивает текст
             experimentTable.setPlaceholder(new javafx.scene.control.Label("No experiments"));
+            experimentTable.setTableMenuButtonVisible(true);
 
-            //Создаем колонку ID, она работает со строками ExperimentRow
+        //Создаем колонку ID, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, Long> idColumn = new TableColumn<>("ID");
             //Берем значение через гетер
             idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+            configureIdColumn(idColumn, 56);
 
-            //Создаем колонку name, она работает со строками ExperimentRow
+        //Создаем колонку name, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, String> nameColumn = new TableColumn<>("Name");
             //Берем значение через гетер
             nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
@@ -205,13 +242,20 @@ public class MainView {
             TableColumn<ExperimentRow, String> descriptionColumn = new TableColumn<>("Description");
              //Берем значение через гетер
             descriptionColumn.setCellValueFactory(new PropertyValueFactory<>("description"));
+            configurePreviewColumn(descriptionColumn, "Experiment description");
 
-            //Создаем колонку owner, она работает со строками ExperimentRow
-            TableColumn<ExperimentRow, String> ownerColumn = new TableColumn<>("Owner");
+        //Создаем колонку owner, она работает со строками ExperimentRow
+            TableColumn<ExperimentRow, Long> ownerColumn = new TableColumn<>("Owner ID");
             //Берем значение через гетер
-            ownerColumn.setCellValueFactory(new PropertyValueFactory<>("ownerUsername"));
+            ownerColumn.setCellValueFactory(new PropertyValueFactory<>("ownerId"));
+            configureIdColumn(ownerColumn, 80);
+            ownerColumn.setVisible(false);
 
-            //Создаем колонку created, она работает со строками ExperimentRow
+            TableColumn<ExperimentRow, String> ownerLoginColumn = new TableColumn<>("Owner Login");
+            ownerLoginColumn.setCellValueFactory(new PropertyValueFactory<>("ownerLogin"));
+            ownerLoginColumn.setMinWidth(110);
+
+        //Создаем колонку created, она работает со строками ExperimentRow
             TableColumn<ExperimentRow, String> createdColumn = new TableColumn<>("Created");
              //Берем значение через гетер
             createdColumn.setCellValueFactory(new PropertyValueFactory<>("createdAt"));
@@ -221,14 +265,17 @@ public class MainView {
             //Берем значение через гетер
             updatedColumn.setCellValueFactory(new PropertyValueFactory<>("updatedAt"));
 
-            //Добавляем колонки в таблицу
+            hideTechnicalDateColumns(createdColumn, updatedColumn);
+
+        //Добавляем колонки в таблицу
             experimentTable.getColumns().add(idColumn);
             experimentTable.getColumns().add(nameColumn);
+            experimentTable.getColumns().add(ownerLoginColumn);
             experimentTable.getColumns().add(descriptionColumn);
             experimentTable.getColumns().add(ownerColumn);
             experimentTable.getColumns().add(createdColumn);
             experimentTable.getColumns().add(updatedColumn);
-        }
+     }
 
     //Настраиваем таблицу прогонов
         private void configureRunTable() {
@@ -236,16 +283,19 @@ public class MainView {
             runTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             //Если данных нет, выскакивает текст
             runTable.setPlaceholder(new javafx.scene.control.Label("No runs"));
+            runTable.setTableMenuButtonVisible(true);
 
             //Создаем колонку ID, она работает со строками RunRow
             TableColumn<RunRow, Long> idColumn = new TableColumn<>("ID");
             //Берем значение через гетер
             idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+            configureIdColumn(idColumn, 56);
 
             //Создаем колонку experimentId, она работает со строками RunRow
             TableColumn<RunRow, Long> experimentIdColumn = new TableColumn<>("Experiment ID");
             //Берем значение через гетер
             experimentIdColumn.setCellValueFactory(new PropertyValueFactory<>("experimentId"));
+            configureIdColumn(experimentIdColumn, 96);
 
             //Создаем колонку name, она работает со строками RunRow
             TableColumn<RunRow, String> nameColumn = new TableColumn<>("Name");
@@ -267,6 +317,8 @@ public class MainView {
             //Берем значение через гетер
             updatedColumn.setCellValueFactory(new PropertyValueFactory<>("updatedAt"));
 
+            hideTechnicalDateColumns(createdColumn, updatedColumn);
+
             //Добавляем колонки в таблицу
             runTable.getColumns().add(idColumn);
             runTable.getColumns().add(experimentIdColumn);
@@ -274,7 +326,7 @@ public class MainView {
             runTable.getColumns().add(operatorColumn);
             runTable.getColumns().add(createdColumn);
             runTable.getColumns().add(updatedColumn);
-        }
+     }
 
     //Настраиваем таблицу результатов прогонов
         private void configureResultTable() {
@@ -282,16 +334,19 @@ public class MainView {
             resultTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
             //Если данных нет, выскакивает текст
             resultTable.setPlaceholder(new javafx.scene.control.Label("No results"));
+            resultTable.setTableMenuButtonVisible(true);
 
             //Создаем колонку id, она работает со строками RunResultRow
             TableColumn<RunResultRow, Long> idColumn = new TableColumn<>("ID");
             //Берем значение через гетер
             idColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
+            configureIdColumn(idColumn, 56);
 
             //Создаем колонку runId, она работает со строками RunResultRow
             TableColumn<RunResultRow, Long> runIdColumn = new TableColumn<>("Run ID");
             //Берем значение через гетер
             runIdColumn.setCellValueFactory(new PropertyValueFactory<>("runId"));
+            configureIdColumn(runIdColumn, 72);
 
             //Создаем колонку  param, она работает со строками RunResultRow
             TableColumn<RunResultRow, String> paramColumn = new TableColumn<>("Param");
@@ -312,6 +367,7 @@ public class MainView {
             TableColumn<RunResultRow, String> commentColumn = new TableColumn<>("Comment");
             //Берем значение через гетер
             commentColumn.setCellValueFactory(new PropertyValueFactory<>("comment"));
+            configurePreviewColumn(commentColumn, "Result comment");
 
             //Создаем колонку created, она работает со строками RunResultRow
             TableColumn<RunResultRow, String> createdColumn = new TableColumn<>("Created");
@@ -323,6 +379,8 @@ public class MainView {
             //Берем значение через гетер
             updatedColumn.setCellValueFactory(new PropertyValueFactory<>("updatedAt"));
 
+            hideTechnicalDateColumns(createdColumn, updatedColumn);
+
             //Добавляем колонки в таблицу
             resultTable.getColumns().add(idColumn);
             resultTable.getColumns().add(runIdColumn);
@@ -332,7 +390,78 @@ public class MainView {
             resultTable.getColumns().add(commentColumn);
             resultTable.getColumns().add(createdColumn);
             resultTable.getColumns().add(updatedColumn);
-        }
     }
+
+    // метод принимает текст заголовка
+    private Label createTableTitle(String title) {
+        Label label = new Label(title.toUpperCase());
+        label.setMaxWidth(Double.MAX_VALUE);// растягивание по ширине
+        label.setAlignment(Pos.CENTER); // центровка
+        label.setStyle("-fx-font-weight: bold; -fx-padding: 6 0 4 2;"); // вид текста: жирный+отступы
+        return label;
+    }
+
+    // принимает колонку с числовым id и желаемую ширину
+    private void configureIdColumn(TableColumn<?, Long> column, double width) {
+        column.setMinWidth(width); // колонка не станет слишком узкой
+        column.setPrefWidth(width); // норм ширина по умолчанию
+        column.setMaxWidth(width + 16); // колонка не станет слишком широкой
+    }
+
+    private void hideTechnicalDateColumns(TableColumn<?, String> createdColumn, TableColumn<?, String> updatedColumn) {
+        createdColumn.setVisible(false);
+        updatedColumn.setVisible(false);
+    }
+
+    private <T> void configurePreviewColumn(TableColumn<T, String> column, String previewTitle) {
+        column.setCellFactory(tableColumn -> new TableCell<>() {
+            private final Label textLabel = new Label();
+            private final Button previewButton = new Button("View");
+            private final HBox content = new HBox(4, textLabel, previewButton);
+
+            {
+                textLabel.setMaxWidth(Double.MAX_VALUE);
+                textLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
+                HBox.setHgrow(textLabel, Priority.ALWAYS);
+
+                previewButton.setVisible(false);
+                previewButton.setManaged(false);
+                previewButton.setOnAction(event -> previewRequestHandler.accept(previewTitle, getItem()));
+
+                content.setAlignment(Pos.CENTER_LEFT);
+
+                hoverProperty().addListener((observable, oldValue, hovered) -> updatePreviewButton());
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (empty) {
+                    setGraphic(null);
+                    return;
+                }
+
+                textLabel.setText(valueOrEmpty(item));
+                setGraphic(content);
+                updatePreviewButton();
+            }
+
+            private void updatePreviewButton() {
+                boolean shouldShow = isHover() && getItem() != null && !getItem().isBlank();
+                previewButton.setVisible(shouldShow);
+                previewButton.setManaged(shouldShow);
+            }
+        });
+    }
+
+    private String valueOrEmpty(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value;
+    }
+}
 
 

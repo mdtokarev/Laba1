@@ -1,9 +1,14 @@
 package service;
 
+import database.ExperimentRepository;
 import domain.Experiment;
 import validation.ValidationException;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class ExperimentService {
 
@@ -11,31 +16,67 @@ public class ExperimentService {
     private final TreeMap<Long, Experiment> experiments = new TreeMap<>();
     //    Счётчик id - ответственность сервиса, хранится в нём
     private long nextId = 1;
+    private final ExperimentRepository experimentRepository;
+
+//    конструктор старого режима - только TreeMap
+    public ExperimentService() {
+        this(null);
+    }
+
+//    конструктор подключения к БД
+    public ExperimentService(ExperimentRepository experimentRepository) {
+        this.experimentRepository = experimentRepository;
+        if (experimentRepository != null) {
+//            из таблицы experiments возвращаем List<Experiment>
+            loadRestored(experimentRepository.findAll());
+        }
+    }
 
     private long generateNextId() {
         return nextId++;
     }
 
-    public Experiment add(String name, String description, String ownerUsername) {
+    public Experiment add(String name, String description, long ownerId) {
+        validateExperimentData(name, description, ownerId);
+
+        if (experimentRepository != null) {
+//            создаем эксперимент через БД, получаем готовый Experiment
+            Experiment exp = experimentRepository.insert(name, description, ownerId);
+            experiments.put(exp.getId(), exp); // кладем его в TreeMap
+            nextId = Math.max(nextId, exp.getId() + 1);
+            return exp;
+        }
+
         long id = generateNextId();
 
-        Experiment exp = new Experiment(id, name, description, ownerUsername);
+        Experiment exp = new Experiment(id, name, description, ownerId);
         experiments.put(id, exp);
         return exp;
     }
 
+    private void validateExperimentData(String name, String description, long ownerId) {
+        new Experiment(1, name, description, ownerId);
+    }
+
     public void remove(long id) {
         if (!experiments.containsKey(id)) {
+//            если эксперимента с таким номером НЕТ - кидаем исключение
             throw new ValidationException("Experiment with id - " + id + " doesn't exist");
         }
-//        если эксперимента с таким номером НЕТ - кидаем исключение
+
+        if (experimentRepository != null) {
+            experimentRepository.delete(id);
+        }
         experiments.remove(id);
     }
 
-    public Experiment update(long id, String name, String description, String ownerUsername) {
+    public Experiment update(long id, String name, String description) {
 //        Сервис находит нужный объект по id, само изменение выполняет доменный объект
         Experiment experiment = getById(id);
-        experiment.update(name, description, ownerUsername);
+        experiment.update(name, description);
+        if (experimentRepository != null) {
+            experimentRepository.update(experiment);
+        }
         return experiment;
     }
     //Копия эксперементов
@@ -52,30 +93,39 @@ public class ExperimentService {
         return exp;
     }
 
-    // Возвращаем копию коллекции для сохранения
-    public List<Experiment> snapshot() {
-        return new ArrayList<>(experiments.values());
-    }
 
-    // Метод загружает восстановленные объекты и обновляет nextId
-    public void loadRestored(List<Experiment> restoredExperiments) {
-        //Создаем временное хранилище куда будем складывать загруженные эксперементы
-        Map<Long, Experiment> loadedExperiments = new TreeMap<>();
-        long maxId = 0;
+// Возвращаем копию коллекции для сохранения
+public List<Experiment> snapshot() {
+    return new ArrayList<>(experiments.values());
+}
 
-        //Проходим по всем эксперементам проверяем что ID не повторяются, если что выбрасываем ошибку
-        for (Experiment experiment : restoredExperiments) {
-            if (loadedExperiments.put(experiment.getId(), experiment) != null) {
-                throw new ValidationException("Duplicate experiment id: " + experiment.getId());
-            }
-            maxId = Math.max(maxId, experiment.getId());//Обновляем max ID
+// Метод будет вызываться ui, когда пользователь нажмет кнопку refresh
+public void refreshFromRepository() {
+        if (experimentRepository == null) {
+            return; // если не подключена бд - просто не делаем ничего
         }
-//Очищаем коллецию сервиса и загружаем новые данные с правильным ID
-        experiments.clear();
-        experiments.putAll(loadedExperiments);
-        nextId = maxId + 1;
-    }
 
+        loadRestored(experimentRepository.findAll()); // если репо есть - идем в бд и читаем все оттуда
+}
+
+// Метод загружает восстановленные объекты и обновляет nextId
+public void loadRestored(List<Experiment> restoredExperiments) {
+    //Создаем временное хранилище куда будем складывать загруженные эксперементы
+    Map<Long, Experiment> loadedExperiments = new TreeMap<>();
+    long maxId = 0;
+
+    //Проходим по всем эксперементам проверяем что ID не повторяются, если что выбрасываем ошибку
+    for (Experiment experiment : restoredExperiments) {
+        if (loadedExperiments.put(experiment.getId(), experiment) != null) {
+            throw new ValidationException("Duplicate experiment id: " + experiment.getId());
+        }
+        maxId = Math.max(maxId, experiment.getId());//Обновляем max ID
+    }
+//Очищаем коллецию сервиса и загружаем новые данные с правильным ID
+    experiments.clear();
+    experiments.putAll(loadedExperiments);
+    nextId = maxId + 1;
+}
 }
 
 

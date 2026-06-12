@@ -1,21 +1,26 @@
 package ui.dialog;
 
 import domain.MeasurementParam;
+import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import service.ExperimentSummary;
+import validation.ValidationException;
 
+import java.util.List;
 import java.util.Optional;
 
 //Класс для создания форм окон в пользовательском интерфейсе
 public class EntityDialogs {
 
     //Показывает окно для добавления или редактирования эксперемента. Когда нажимаешь ок Optional с данными если Cancel то пусто
-    public Optional<ExperimentFormData> showExperimentDialog(String title, String name, String description, String ownerUsername) {
+    public Optional<ExperimentFormData> showExperimentDialog(String title, String name, String description) {
         //Создаем диалог, который в итоге вернет ExperimentFormData
         Dialog<ExperimentFormData> dialog = new Dialog<>();
         //Ставим заголовок и убираем header
@@ -26,8 +31,6 @@ public class EntityDialogs {
         TextField nameField = new TextField(valueOrEmpty(name));
         //Поле для описания
         TextArea descriptionArea = new TextArea(valueOrEmpty(description));
-        //Поле для владельца
-        TextField ownerField = new TextField(valueOrEmpty(ownerUsername));
 
         //Описание высотой 3 строчки
         descriptionArea.setPrefRowCount(3);
@@ -40,9 +43,7 @@ public class EntityDialogs {
         //Добавляем описание и поля ввода
         grid.add(new javafx.scene.control.Label("Description:"), 0, 1);
         grid.add(descriptionArea, 1, 1);
-        //Добавляем владельца и поля ввода
-        grid.add(new javafx.scene.control.Label("Owner:"), 0, 2);
-        grid.add(ownerField, 1, 2);
+
 
         //Добовляем сетку в окно
         dialog.getDialogPane().setContent(grid);
@@ -53,7 +54,7 @@ public class EntityDialogs {
         //Говорим что вернуть поле закрытия окна, если ок то создаем объект с нововеденными данными, если Cancel то нечего
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
-                return new ExperimentFormData(nameField.getText(), descriptionArea.getText(), ownerField.getText());
+                return new ExperimentFormData(nameField.getText(), descriptionArea.getText());
             }
 
             return null;
@@ -121,8 +122,28 @@ public class EntityDialogs {
 
         //Поле ввода значения , String.valueOf(value) нужен, чтобы перевести число double в текст
         TextField valueField = new TextField(String.valueOf(value));
-        //Поле ввода елениц измерения
-        TextField unitField = new TextField(valueOrEmpty(unit));
+        // выпадающий список единиц измерения
+        ComboBox<String> unitBox = new ComboBox<>();
+        configureUnitsFor(unitBox, paramBox.getValue());
+        unitBox.setEditable(false);
+
+        if (valueOrEmpty(unit).isBlank()) {
+            unitBox.setValue(defaultUnitFor(paramBox.getValue()));
+        } else {
+            unitBox.setValue(unit);
+        }
+
+        paramBox.valueProperty().addListener((observable, oldValue, newValue) -> {
+            String currentUnit = unitBox.getValue();
+            configureUnitsFor(unitBox, newValue);
+
+            if (currentUnit == null || currentUnit.isBlank() || currentUnit.equals(defaultUnitFor(oldValue))) {
+                unitBox.setValue(defaultUnitFor(newValue));
+            } else {
+                unitBox.setValue(currentUnit);
+            }
+        });
+
         //Поле ввода комментария
         TextArea commentArea = new TextArea(valueOrEmpty(comment));
         //Настраиваем высоту поля для комментария
@@ -138,7 +159,7 @@ public class EntityDialogs {
         grid.add(valueField, 1, 1);
         //Добавляем еденицы измерения и поле ввода
         grid.add(new javafx.scene.control.Label("Unit:"), 0, 2);
-        grid.add(unitField, 1, 2);
+        grid.add(unitBox, 1, 2);
         //Добавляем комментарий и поле ввода
         grid.add(new javafx.scene.control.Label("Comment:"), 0, 3);
         grid.add(commentArea, 1, 3);
@@ -149,13 +170,24 @@ public class EntityDialogs {
         dialog.getDialogPane().getButtonTypes().add(ButtonType.OK);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CANCEL);
 
+        Node okButton = dialog.getDialogPane().lookupButton(ButtonType.OK);
+        okButton.addEventFilter(ActionEvent.ACTION, event -> {
+            try {
+                parseValue(valueField.getText());
+            } catch (ValidationException e) {
+                new AlertDialogs().showError(e.getMessage());
+                valueField.requestFocus();
+                valueField.selectAll();
+                event.consume();
+            }
+        });
+
         //Говорим что вернуть поле закрытия окна, если ок то создаем объект с нововеденными данными, если Cancel то нечего
         dialog.setResultConverter(button -> {
             if (button == ButtonType.OK) {
-                double parsedValue = Double.parseDouble(valueField.getText());
-                return new RunResultFormData(paramBox.getValue(), parsedValue, unitField.getText(), commentArea.getText());
+                double parsedValue = parseValue(valueField.getText());
+                return new RunResultFormData(paramBox.getValue(), parsedValue, unitBox.getValue(), commentArea.getText());
             }
-
             return null;
         });
 
@@ -163,18 +195,73 @@ public class EntityDialogs {
         return dialog.showAndWait();
     }
 
+    private double parseValue(String value) {
+        String trimmedValue = value.trim();
+        if (trimmedValue.isEmpty()) {
+            throw new ValidationException("Value can't be empty");
+        }
+
+        try {
+            return Double.parseDouble(trimmedValue);
+        } catch (NumberFormatException e) {
+            throw new ValidationException("Value must be a number");
+        }
+    }
+
+    public void showTextPreview(String title, String text) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle(title);
+        dialog.setHeaderText(null);
+
+        TextArea previewArea = new TextArea(valueOrEmpty(text));
+        previewArea.setEditable(false);
+        previewArea.setWrapText(true);
+        previewArea.setPrefRowCount(12);
+        previewArea.setPrefColumnCount(48);
+
+        dialog.getDialogPane().setContent(previewArea);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+    }
+
+    public void showSummaryDialog(ExperimentSummary summary) {
+        new SummaryDialog().show(summary);
+    }
+
+    private String defaultUnitFor(MeasurementParam param) {
+        if (param == MeasurementParam.Temperature) {
+            return "°C";
+        }
+        if (param == MeasurementParam.Concentration) {
+            return "mg/L";
+        }
+        return "pH";
+    }
+
+    private void configureUnitsFor(ComboBox<String> unitBox, MeasurementParam param) {
+        unitBox.getItems().setAll(unitsFor(param));
+    }
+
+    private List<String> unitsFor(MeasurementParam param) {
+        if (param == MeasurementParam.Temperature) {
+            return List.of("°C", "K");
+        }
+        if (param == MeasurementParam.Concentration) {
+            return List.of("mg/L", "g/L", "mol/L", "%");
+        }
+        return List.of("pH");
+    }
+
     //Метод вспомогательный для создания окна
     private GridPane createGrid() {
         //Создаем сетку
         GridPane grid = new GridPane();
-
         //Горизонтальный отступ между колонками
         grid.setHgap(8);
         //Вертикальный отступ между строками
         grid.setVgap(8);
         //Внутренний отступ окна
         grid.setPadding(new Insets(12));
-
         //Возращаем сетку
         return grid;
     }
@@ -185,7 +272,6 @@ public class EntityDialogs {
         if (value == null) {
             return "";
         }
-
         //Возвращаем значение
         return value;
     }

@@ -3,18 +3,12 @@ package ui.controller;
 import domain.Experiment;
 import domain.Run;
 import domain.RunResult;
+import domain.User;
 import javafx.collections.FXCollections;
 import javafx.scene.Parent;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import service.DataManager;
-import service.ExperimentService;
-import service.ExperimentSummary;
-import service.ExperimentSummaryService;
-import service.LabService;
-import service.ParamStatistics;
-import service.RunResultService;
-import service.RunService;
+import service.*;
 import ui.dialog.AlertDialogs;
 import ui.dialog.EntityDialogs;
 import ui.dialog.ExperimentFormData;
@@ -29,7 +23,8 @@ import validation.ValidationException;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.BooleanSupplier;
 
 
 public class MainController {
@@ -38,9 +33,12 @@ public class MainController {
     private final ExperimentService experimentService;
     private final RunService runService;
     private final RunResultService resultService;
-    private final DataManager dataManager;
     private final LabService labService;
     private final ExperimentSummaryService summaryService;
+    private final AuthService authService;
+    private final AccessControlService accessControlService;
+    private final StorageMode storageMode;
+    private final BooleanSupplier authenticateAgain;
 
     private final MainView view;
     private final UiModelMapper mapper;
@@ -48,15 +46,25 @@ public class MainController {
     private final EntityDialogs dialogs;
 
     private String currentFilePath;
+    // отдельно будем хранить список всех экспериментов (очистка поиска вернет все строки корректно)
+    private List<ExperimentRow> allExperimentRows = List.of();
 
-    public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService, DataManager dataManager, LabService labService, ExperimentSummaryService summaryService){
+//    запускать в окно Ui только зареганных юзеров, удален костыль с owner_id = 1. см строка 188
+
+    public MainController(Stage stage, ExperimentService experimentService, RunService runService, RunResultService resultService,
+                          LabService labService, ExperimentSummaryService summaryService,
+                          AuthService authService, AccessControlService accessControlService, StorageMode storageMode,
+                          BooleanSupplier authenticateAgain) {
         this.stage = stage;
         this.experimentService = experimentService;
         this.runService = runService;
         this.resultService = resultService;
-        this.dataManager = dataManager;
         this.labService = labService;
         this.summaryService = summaryService;
+        this.authService = authService;
+        this.accessControlService = accessControlService;
+        this.storageMode = storageMode;
+        this.authenticateAgain = authenticateAgain;
 
         this.view = new MainView();
         this.mapper = new UiModelMapper();
@@ -65,6 +73,10 @@ public class MainController {
 
         //Подключаем действия к кнопкам
         connectActions();
+
+        // показываем имя залогиненного пользователя
+        view.setCurrentUserText("User: " + authService.requireCurrentUser().getLogin());
+
         //Первый раз заполняем таблицы данными из сервисов
         refreshAll();
     }
@@ -77,10 +89,12 @@ public class MainController {
     //Метод чтобы при запуске пользовательского окна мы могли запуститься с файлом
     public void loadInitialFile(String path) {
         try {
-            dataManager.loadFromFile(path);//Загружаем данные из файла
-            currentFilePath = path;//Запоминаем файл как текущий
-            refreshAll();//Обновляем таблицы
-            alerts.showInfo("Loaded", "Data loaded from:\n" + path);//Показываем пользователю что все загрузилось
+            String message = storageMode.load(path);//Загружаем данные из выбранного режима
+            if (!storageMode.isDatabase()) {
+                currentFilePath = path;//Запоминаем файл как текущий
+            }
+            refreshAll(); //Обновляем таблицы
+            alerts.showInfo("Loaded", message);//Показываем пользователю что все загрузилось
             //Ловим если что ошибки
         } catch (IOException e) {
             alerts.showError("File error: " + e.getMessage());
@@ -90,6 +104,8 @@ public class MainController {
     }
 
     private void connectActions() {
+        view.setPreviewRequestHandler((title, text) -> runSafely(() -> dialogs.showTextPreview(title, text)));
+
         //Когда нажали Refresh, вызывается refreshAll
         view.getRefreshButton().setOnAction(event -> runSafely(this::refreshAll));
 
@@ -111,21 +127,119 @@ public class MainController {
         view.getDeleteResultButton().setOnAction(event -> runSafely(this::deleteResult));
 
         view.getSummaryButton().setOnAction(event -> runSafely(this::showSummary));
+        view.getLogoutButton().setOnAction(event -> runSafely(this::logout));
+        // поле поиска реагирует на каждый новый символ и показывает соответствующий список
+        view.getSearchField().textProperty().addListener((observable, oldValue,
+                                                          newValue) -> runSafely(this::searchExperiments));
 
         //Когда пользователь выбирает эксперимент, обновляется таблица прогонов
-        view.getExperimentTable().getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> refreshRunsForSelectedExperiment());
+        view.getExperimentTable().getSelectionModel().selectedItemProperty()
+                .addListener((
+                        observable,
+                        oldValue,
+                        newValue) -> { refreshRunsForSelectedExperiment();
+                                                     updateActionButtons(); // доступные кнопки - ?
+                        });
 
         //Когда пользователь выбирает прогон, обновляется таблица результатов
-        view.getRunTable().getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> refreshResultsForSelectedRun());
+        view.getRunTable().getSelectionModel().selectedItemProperty()
+                .addListener((
+                        observable,
+                        oldValue,
+                        newValue) -> { refreshResultsForSelectedRun();
+                                               updateActionButtons(); // доступные кнопки - ?
+                        });
+
+        view.getResultTable().getSelectionModel().selectedItemProperty()
+                .addListener((
+                        observable,
+                        oldValue, newValue) -> {
+            updateActionButtons();
+        });
+    }
+
+    private void logout() {
+        authService.logout();
+        if (!authenticateAgain.getAsBoolean()) {
+            stage.close();
+            return;
+        }
+        view.setCurrentUserText("User: " + authService.requireCurrentUser().getLogin());
+        refreshAll();
     }
 
     //Метод полностью обновляет таблицу экспериментов из ExperimentService
     private void refreshAll() {
-        //Каждый эксперемнт переводим в ExperimentRow, делаем список для таблицы, кладем данные в таблицу
-        view.setExperiments(FXCollections.observableArrayList(experimentService.list().stream().map(mapper::toExperimentRow).toList()));
+        Long selectedExperimentId = getSelectedExperimentId();
+        Long selectedRunId = getSelectedRunId();
+        Long selectResultId = getSelectedResultId();
+
+        refreshDataFromStorage();
+
+        // после refresh заново строим весь список экспериментов; применяем текущий текст поиска к обновленным данным
+        allExperimentRows = buildExperimentRows();
+        applyExperimentFilter();
+        selectExperimentById(selectedExperimentId);
 
         //После обновления эксперементов обновляем зависимые таблицы
         refreshRunsForSelectedExperiment();
+        selectRunById(selectedRunId);
+        refreshResultsForSelectedRun();
+        selectResultById(selectResultId);
+        updateActionButtons();
+    }
+
+    // контроллер говорит режиму обновить данные
+    private void refreshDataFromStorage() {
+        storageMode.refresh();
+    }
+
+    // метод собирает строки таблицы экспериментов с заданным ownerLogin
+    private List<ExperimentRow> buildExperimentRows() {
+        Map<Long, String> ownerLogins = new HashMap<>();
+        for (User user : authService.list()) {
+            ownerLogins.put(user.getId(), user.getLogin()); // заполняем Map id и login юзера
+        }
+
+        // для каждого exp ищем ownerLogin по ownerId. Если логина нет - показываем id
+        return experimentService.list().stream()
+                .map(experiment -> mapper.toExperimentRow(experiment, ownerLogins.getOrDefault(experiment.getOwnerId(), String.valueOf(experiment.getOwnerId()))))
+                .toList();
+    }
+
+    // метод применяет текущий поиск к полному списку экспериментов
+    private void applyExperimentFilter() {
+        // берем текст поиска, убираем пробелы по краям, приводим к нижнему регистру
+        String query = view.getSearchField().getText().trim().toLowerCase(Locale.ROOT);
+        if (query.isEmpty()) {
+            // если поиск пустой - показываем все эксперименты
+            view.setExperiments(FXCollections.observableArrayList(allExperimentRows));
+            return;
+        }
+
+        view.setExperiments(FXCollections.observableArrayList(
+                // если запрос не пустой - фильтруем весь список
+                allExperimentRows.stream()
+                        // оставляем, если содержит название/имя владельца
+                        .filter(row -> containsIgnoreCase(row.getName(), query)
+                                || containsIgnoreCase(row.getOwnerLogin(), query))
+                        .toList()
+        ));
+    }
+
+    // метод вызывается при вводе текста
+    private void searchExperiments() {
+        Long selectedExperimentId = getSelectedExperimentId(); // запоминаем выбранный эксперимент перед фильтрацией
+        applyExperimentFilter();
+        selectExperimentById(selectedExperimentId); // если эксп остался в фильтре - выделяем его снова
+        refreshRunsForSelectedExperiment();
+        updateActionButtons();
+    }
+
+    // вспомогательный метод для поиска без учета регистра
+    private boolean containsIgnoreCase(String value, String query) {
+        // если значение не null, приводим его к н.р. и проверяем неполное совпадение через contains
+        return value != null && value.toLowerCase(Locale.ROOT).contains(query);
     }
 
     //Метод обновляет таблицу прогонов для выбранного эксперимента
@@ -164,7 +278,7 @@ public class MainController {
     //Метод открывает окно добавления эксперимента
     private void addExperiment() {
         //Открываем окно добавления эксперимента
-        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Add experiment", "", "", "");
+        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Add experiment", "", "");
 
         //Если нажали Cancel то ничего не делаем
         if (result.isEmpty()) {
@@ -173,8 +287,8 @@ public class MainController {
 
         //Достаем введенные данные
         ExperimentFormData data = result.get();
-        //Передаем данные в сервис там создается настоящий Experiment
-        experimentService.add(data.getName(), data.getDescription(), data.getOwnerUsername());
+        //Передаем данные в сервис там создается настоящий Experiment - новый должен принадлежать текущему юзеру
+        experimentService.add(data.getName(), data.getDescription(), authService.requireCurrentUser().getId());
 
         //Обновляем таблицы
         refreshAll();
@@ -184,11 +298,12 @@ public class MainController {
     private void editExperiment() {
         //Требуем, чтобы пользователь выбрал эксперимент
         ExperimentRow selected = requireSelectedExperiment();
+        requireCanModifyExperiment(selected.getId()); // проверка прав на редактирование эксперимента (чужой нельзя)
         //Берем настоящий объект из сервиса
         Experiment experiment = experimentService.getById(selected.getId());
 
         //Открываем окно и передаем старые значения
-        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Edit experiment", experiment.getName(), experiment.getDescription(), experiment.getOwnerUsername());
+        Optional<ExperimentFormData> result = dialogs.showExperimentDialog("Edit experiment", experiment.getName(), experiment.getDescription());
 
         //Если Cancel или закрыл окно, то данных нет
         if (result.isEmpty()) {
@@ -199,7 +314,7 @@ public class MainController {
         ExperimentFormData data = result.get();
 
         //Передаем новые данные в сервисы
-        experimentService.update(experiment.getId(), data.getName(), data.getDescription(), data.getOwnerUsername());
+        experimentService.update(experiment.getId(), data.getName(), data.getDescription());
 
         //Обновляем таблицу
         refreshAll();
@@ -209,11 +324,12 @@ public class MainController {
     private void deleteExperiment() {
         //Берем выбранный эксперемент
         ExperimentRow selected = requireSelectedExperiment();
+        requireCanModifyExperiment(selected.getId()); // проверка прав на удаление (чужой нельзя)
 
         //Спращиваем подтверждение о удалении
         boolean confirmed = alerts.confirm("Delete experiment with all runs and results?");
 
-        //Если Cancel или закрыл окно то не удаляем
+        //Если Cancel или закрыл окно, то не удаляем
         if (!confirmed) {
             return;
         }
@@ -229,6 +345,7 @@ public class MainController {
     private void addRun() {
         //Проверяем выбран ли эксперемент
         ExperimentRow selectedExperiment = requireSelectedExperiment();
+        requireCanModifyExperiment(selectedExperiment.getId()); // проверка прав (можно добавлять run только в свой)
 
         //Открываем окно добавления прогона
         Optional<RunFormData> result = dialogs.showRunDialog("Add run", "", "");
@@ -252,6 +369,7 @@ public class MainController {
     private void editRun() {
         //Проверяем что выбран прогон
         RunRow selected = requireSelectedRun();
+        requireCanModifyRun(selected.getId()); // редактировать чужой нельзя
         //Берем настоящий объект из сервиса
         Run run = runService.getById(selected.getId());
 
@@ -277,6 +395,7 @@ public class MainController {
     private void deleteRun() {
         //Проверяем что выбрали прогон
         RunRow selected = requireSelectedRun();
+        requireCanModifyRun(selected.getId()); // удалять чужой нельзя
 
         //Окно подтверждения
         boolean confirmed = alerts.confirm("Delete run with all results?");
@@ -297,6 +416,7 @@ public class MainController {
     private void addResult() {
         //Проверяем выбран ли прогон
         RunRow selectedRun = requireSelectedRun();
+        requireCanModifyRun(selectedRun.getId()); // нельзя добавлять к чужому
 
         //Открываем окно добавления
         Optional<RunResultFormData> result = dialogs.showResultDialog("Add result", null, 0, "", "");
@@ -320,6 +440,7 @@ public class MainController {
     private void editResult() {
         //Проверяем выбран ли прогон
         RunResultRow selected = requireSelectedResult();
+        requireCanModifyResult(selected.getId()); // редактировать чужой нельзя
         //Берем настоящий result из сервиса
         RunResult result = resultService.getById(selected.getId());
 
@@ -345,6 +466,7 @@ public class MainController {
     private void deleteResult() {
         //Проверяем выбран ли рузультат
         RunResultRow selected = requireSelectedResult();
+        requireCanModifyResult(selected.getId()); // нельзя удалять чужой
 
         //Окно подтверждения
         boolean confirmed = alerts.confirm("Delete selected result?");
@@ -363,37 +485,22 @@ public class MainController {
 
     //Метод показывает статистику по выбранному эксперименту
     private void showSummary() {
-        //Проверяем выбран ли эксперемент
+        //Проверяем выбран ли эксперимент
         ExperimentRow selected = requireSelectedExperiment();
 
-        //Вызываем сервис статистики
+        // собираем summary по выбранному эксперименту
         ExperimentSummary summary = summaryService.buildForExperiment(selected.getId());
 
-        //Создаем объект для сборки текст
-        StringBuilder text = new StringBuilder();
-        //Добавляем в текст название эксперемента
-        text.append("Experiment: ").append(summary.getExperimentName()).append("\n\n");
-
-        //Если нет результатов то No results
-        if (summary.getStatistics().isEmpty()) {
-            text.append("No results");
-            //Если статистика есть проходимся по каждому параметру и добавляем их
-        } else {
-            for (ParamStatistics statistics : summary.getStatistics()) {
-                text.append(statistics.getParam()).append("\n");
-                text.append("Count: ").append(statistics.getCount()).append("\n");
-                text.append("Min: ").append(statistics.getMin()).append("\n");
-                text.append("Max: ").append(statistics.getMax()).append("\n");
-                text.append("Average: ").append(statistics.getAverage()).append("\n\n");
-            }
-        }
-
-        //Показываем окно со статистикой
-        alerts.showInfo("Summary", text.toString());
+        //Показываем окно с текстовой статистикой и графиком
+        dialogs.showSummaryDialog(summary);
     }
 
     //Метод сохраняет данные в текущий JSON-файл
     private void save() throws IOException {
+        if (storageMode.isDatabase()) {
+            alerts.showInfo(storageMode.getName(), storageMode.save(currentFilePath));
+            return;
+        }
         //Проверяем текущий файл
         if (currentFilePath == null || currentFilePath.isBlank()) {
             //Если текущего файла нет вызываем saveAs
@@ -402,13 +509,17 @@ public class MainController {
         }
 
         //Если текущий файл есть сохраняем туда
-        dataManager.saveToFile(currentFilePath);
+        String message = storageMode.save(currentFilePath);
         //Показываем сообщение об успехе
-        alerts.showInfo("Saved", "Data saved to:\n" + currentFilePath);
+        alerts.showInfo("Saved", message);
     }
 
     //Метод открывает окно выбора файла, сохраняет данные туда и делает этот путь текущим
     private void saveAs() throws IOException {
+        if (storageMode.isDatabase()) {
+            alerts.showInfo(storageMode.getName(), storageMode.save(currentFilePath));
+            return;
+        }
         //Создаем окно выбора файлов
         FileChooser chooser = createJsonFileChooser("Save As");
         //Показываем пользователю окно сохранения файла
@@ -422,14 +533,18 @@ public class MainController {
         //Запоминаем выбранный путь как текущий файл
         currentFilePath = file.getAbsolutePath();
         //Сохраняем данные в этот файл
-        dataManager.saveToFile(currentFilePath);
+        String message = storageMode.save(currentFilePath);
 
         //Сообщение об успехе
-        alerts.showInfo("Saved", "Data saved to:\n" + currentFilePath);
+        alerts.showInfo("Saved", message);
     }
 
     //Метод открывает окно выбора JSON-файла, загружает данные через DataManager, обновляет таблицы
     private void load() throws IOException {
+        if (storageMode.isDatabase()) {
+            alerts.showInfo(storageMode.getName(), storageMode.load(currentFilePath));
+            return;
+        }
         //Создаем окно выбора файла
         FileChooser chooser = createJsonFileChooser("Load");
         //Показываем окно открытия файла
@@ -441,7 +556,7 @@ public class MainController {
         }
 
         //Загружаем данные из выбранного JSON-файла
-        dataManager.loadFromFile(file.getAbsolutePath());
+        String message = storageMode.load(file.getAbsolutePath());
         //Запоминаем файл как текущий
         currentFilePath = file.getAbsolutePath();
 
@@ -449,7 +564,7 @@ public class MainController {
         refreshAll();
 
         //Сообщение об успехе
-        alerts.showInfo("Loaded", "Data loaded from:\n" + currentFilePath);
+        alerts.showInfo("Loaded", message);
     }
 
     //Метод создает окно выбора файла
@@ -463,6 +578,76 @@ public class MainController {
 
         //Возвращаем готовое окно выбора файла
         return chooser;
+    }
+
+//    метод смотрит, что сейчас выбрано в таблицах и решает, какие кнпоки можно нажимать
+    private void updateActionButtons() {
+
+        // берем текущий выбранный объект из его таблицы
+        ExperimentRow experiment = getSelectedExperiment();
+        RunRow run = getSelectedRun();
+        RunResultRow result = getSelectedResult();
+
+        // если объект выбран, вызываем canModify, который проверяет права пользователя
+        boolean canModifyExperiment = experiment != null && canModifyExperiment(experiment.getId());
+        boolean canModifyRun = run != null && canModifyRun(run.getId());
+        boolean canModifyResult = result != null && canModifyResult(result.getId());
+
+        // если canModify == false, выключаем кнопки
+        view.getEditExperimentButton().setDisable(!canModifyExperiment);
+        view.getDeleteExperimentButton().setDisable(!canModifyExperiment);
+        view.getAddRunButton().setDisable(!canModifyExperiment); // добавление Run зависит от прав на Experiment
+
+        view.getEditRunButton().setDisable(!canModifyRun);
+        view.getDeleteRunButton().setDisable(!canModifyRun);
+        view.getAddResultButton().setDisable(!canModifyRun);
+
+        view.getEditResultButton().setDisable(!canModifyResult);
+        view.getDeleteResultButton().setDisable(!canModifyResult);
+    }
+
+//    методы проверки прав - просто отдают true/false
+    private boolean canModifyExperiment(long experimentId) {
+        try {
+            // требуем регистрации юзера, берем его id, проверяем владение экспериментом
+            accessControlService.checkCanModifyExperiment(authService.requireCurrentUser().getId(), experimentId);
+            return true; // исключений нет -> объект менять можно -> true
+        } catch (ValidationException e) {
+            return false; // прав нет -> кнопку выключаем
+        }
+    }
+
+    private boolean canModifyRun(long runId) {
+        try {
+            accessControlService.checkCanModifyRun(authService.requireCurrentUser().getId(), runId);
+            return true;
+        } catch (ValidationException e) {
+            return false;
+        }
+    }
+
+    private boolean canModifyResult(long resultId) {
+        try {
+            accessControlService.checkCanModifyResult(authService.requireCurrentUser().getId(), resultId);
+            return true;
+        } catch (ValidationException e) {
+            return false;
+        }
+    }
+
+//    методы защиты действий
+    private void requireCanModifyExperiment(long experimentId) {
+        // если юзер имеет право -> все ок, выполнение идет дальше, ошибки нет
+        // в противном случае бросится Exception
+        accessControlService.checkCanModifyExperiment(authService.requireCurrentUser().getId(), experimentId);
+    }
+
+    private void requireCanModifyRun(long runId) {
+        accessControlService.checkCanModifyRun(authService.requireCurrentUser().getId(), runId);
+    }
+
+    private void requireCanModifyResult(long resultId) {
+        accessControlService.checkCanModifyResult(authService.requireCurrentUser().getId(), resultId);
     }
 
     //Метод возвращает выбранную строку из таблицы
@@ -481,6 +666,74 @@ public class MainController {
     private RunResultRow getSelectedResult() {
         //Берем выбранную строку из таблицы результатов, если ничего не выбрано, вернется null
         return view.getResultTable().getSelectionModel().getSelectedItem();
+    }
+
+//    вспомогательные методы для refresh - берут выбранную строку, возвращают ее id/null
+    private Long getSelectedExperimentId() {
+        ExperimentRow selected = getSelectedExperiment();
+        if (selected == null) {
+            return null;
+        } else {
+            return selected.getId();
+        }
+    }
+
+    private Long getSelectedRunId() {
+        RunRow selected = getSelectedRun();
+        if (selected == null) {
+            return null;
+        } else {
+            return selected.getId();
+        }
+    }
+
+    private Long getSelectedResultId() {
+        RunResultRow selected = getSelectedResult();
+        if (selected == null) {
+            return null;
+        } else {
+            return selected.getId();
+        }    }
+
+//    вспомогательные методы для refresh - ищем запомненную строку в таблице и выбираем ее обратно (если есть)
+    private void selectExperimentById(Long id) {
+        if (id == null) {
+            return;
+        }
+
+        for (ExperimentRow row : view.getExperimentTable().getItems()) {
+            if (row.getId() == id) {
+                view.getExperimentTable().getSelectionModel().select(row);
+                return;
+            }
+        }
+    }
+
+    private void selectRunById(Long id) {
+        if (id == null) {
+            return;
+        }
+
+//        ищем id, совпадающий с нужным нам - выбираем ее, выходим из метода (подсветка выбранной до рефреш строки)
+        for (RunRow row : view.getRunTable().getItems()) {
+            if (row.getId() == id) {
+                view.getRunTable().getSelectionModel().select(row);
+                return;
+            }
+        }
+    }
+
+    private void selectResultById(Long id) {
+        if (id == null) {
+            return;
+        }
+
+        for (RunResultRow row : view.getResultTable().getItems()) {
+            if (row.getId() == id) {
+                view.getResultTable().getSelectionModel().select(row);
+                return;
+            }
+        }
     }
 
     //Метод проверяет выбрана строка или нет

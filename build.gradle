@@ -21,6 +21,7 @@ if (osName.contains('win')) {
 
 dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    implementation 'org.postgresql:postgresql:42.7.3'
 
     implementation "org.openjfx:javafx-base:${javafxVersion}:${javafxPlatform}"
     implementation "org.openjfx:javafx-graphics:${javafxVersion}:${javafxPlatform}"

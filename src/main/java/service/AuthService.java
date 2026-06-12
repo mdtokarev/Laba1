@@ -1,0 +1,201 @@
+package service;
+
+import database.UserRepository;
+import domain.User;
+import validation.ValidationException;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+
+//Класс для авторизации
+public class AuthService {
+    //Хранилище пользователей
+    private final Map<Long, User> users = new TreeMap<>();
+    //Не храним обычный пароль, хешируем пароль
+    private final PasswordHasher passwordHasher = new PasswordHasher();
+
+//    появляется внешний источник данных
+    private final UserRepository userRepository;
+
+//    смысл пустого конструктора - если не задается репозиторий, то работа идет в режиме без postgreSQL
+    public AuthService() {
+        this(null);
+    }
+
+//    основной конструктор - если репозиторий передан, то активировать режим с БД
+    public AuthService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+        if (userRepository != null) {
+//            идем в таблицу users, читаем всех и возвращаем List<User>
+            loadRestored(userRepository.findAll());
+        }
+    }
+
+    //Первый пользователь id 1
+    private long nextId = 1;
+    private User currentUser;
+
+    //Метод регистрации
+    public User register(String login, String password) {
+        //Проверяем что пользователя с таким логином нет или ошибка
+        if (findByLogin(login) != null){
+            throw new ValidationException("Login is already taken");
+        }
+
+        //Хешируем пароль
+        String passwordHash = passwordHasher.hash(password);
+
+        if (userRepository != null) {
+            User user = userRepository.insert(login, passwordHash);
+            users.put(user.getId(), user);
+            nextId = Math.max(nextId, user.getId() + 1);
+            return user;
+        }
+
+        //Берем следующий id и увеличиваем счетчик
+        long id = nextId++;
+
+        //Создаем пользователя
+        User user = new User(id, login, passwordHash);
+        //Кладем его в коллекцию
+        users.put(id, user);
+
+        //Возвращаем созданного
+        return user;
+    }
+
+    //Метод входа
+    public User login(String login, String password) {
+        //Ищем пользователя по логину
+        User user = findByLogin(login);
+
+        //Если пользователь не найден ошибка
+        if (user == null) {
+            throw new ValidationException("Invalid login or password");
+        }
+
+        //Хешируем введеный пароль
+        String passwordHash = passwordHasher.hash(password);
+
+        //Сравниваем хеши если не совпадают ошибка
+        if (!user.getPasswordHash().equals(passwordHash)) {
+            throw new ValidationException("Invalid login or password");
+        }
+
+        //Пользователь становится текущим
+        currentUser = user;
+        //Возвращаем пользователя
+        return user;
+    }
+
+    //Метод выхода
+    public void logout() {
+        //Обнуляем текущего пользователя
+        currentUser = null;
+    }
+
+    //Создаем копию мписка пользователей
+    public List<User> list(){
+        return new ArrayList<>(users.values());
+    }
+
+    //Копия текущих пользователей для сохранения в файл
+    public List<User> snapshot(){
+        return new ArrayList<>(users.values());
+    }
+
+//    метод будет перечитывать юзеров из бд, когда в ui нажмут refresh
+    public void refreshFromRepository() {
+        if (userRepository == null) {
+            return;
+        }
+
+        Long currentUserId; // вводим переменную чтобы запомнить текущего пользователя и не удалить его при перезапуске
+        if (currentUser == null) {
+            currentUserId = null;
+        } else {
+            currentUserId = currentUser.getId();
+        }
+
+        loadRestored(userRepository.findAll());
+//        если до refresh был залогиненный юзер - находим его и восстанавливаем
+        if (currentUserId != null) {
+            currentUser = users.get(currentUserId);
+        }
+    }
+
+    //Метод загрузки пользователей из файла
+    public void loadRestored(List<User> restoredUsers ){
+        //Создаем временную коллекцию для проверки данных
+        Map<Long, User> loadedUsers = new TreeMap<>();
+        long maxId = 0;
+
+        //Проходим по всем пользователям
+        for (User user : restoredUsers){
+            //Проверяем что логин не повторяется или ошибка
+            if (findByLoginInMap(loadedUsers, user.getLogin()) != null){
+                throw new ValidationException("Duplicate user login: " + user.getLogin());
+            }
+            //Складываем пользавателей по id  если повторяются ошибка
+            if (loadedUsers.put(user.getId(), user) != null){
+                throw new ValidationException("Duplicate user id: " + user.getId());
+            }
+
+            //Запоминаем самый большой id
+            maxId = Math.max(maxId, user.getId());
+        }
+
+        //Очищаем текущую коллекцию
+        users.clear();
+        //Загружаем провернные данные
+        users.putAll(loadedUsers);
+        //Устанавлеваем следующий id
+        nextId = maxId + 1;
+        //Обнуляем текущего пользователя
+        currentUser = null;
+    }
+
+    //Метод возращаем текущего пользователя
+    public User getCurrentUser() {
+        return currentUser;
+    }
+
+    //Метод требует авторизации пользователя
+    public User requireCurrentUser() {
+        //Если нет текущего пользователя ошибка
+        if (currentUser == null) {
+            throw new ValidationException("You need to login first");
+        }
+
+        //Возращаем текущего
+        return currentUser;
+    }
+
+    //Метод ищет пользователя по логину в коллекции
+//    если есть UserRepository -> ищем через бд; если нет -> через Map
+    private User findByLogin(String login) {
+        if (userRepository != null) {
+            User user = userRepository.findByLogin(login);
+            if (user != null) {
+                users.put(user.getId(), user); // нашли в БД - кладем еще в локальную коллекцию users (актуализация)
+            }
+            return user;
+        }
+        return findByLoginInMap(users, login);
+    }
+
+    //Поиск пользователя по логину в коллекции
+    private User findByLoginInMap(Map<Long, User> source, String login){
+        //Проходим по всем пользователям в коллекции
+        for (User user : source.values()){
+            //Проверяем сходство логина
+            if (user.getLogin().equals(login)){
+                //Возращаем
+                return user;
+            }
+        }
+        return null;
+    }
+}

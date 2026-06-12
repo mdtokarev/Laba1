@@ -1,0 +1,40 @@
+{
+  "experiments" : [ {
+    "id" : 77,
+    "name" : "ilia",
+    "description" : "hot",
+    "ownerUsername" : "max",
+    "createdAt" : "2026-04-21T16:07:55.756773900Z",
+    "updatedAt" : "2026-04-21T16:07:55.756773900Z"
+  }, {
+    "id" : 999999,
+    "name" : "ilia1",
+    "description" : "mom",
+    "ownerUsername" : "int",
+    "createdAt" : "2026-04-21T16:08:38.204226300Z",
+    "updatedAt" : "2026-04-21T16:08:38.204226300Z"
+  }, {
+    "id" : 1000000,
+    "name" : "ede",
+    "description" : "de",
+    "ownerUsername" : "d",
+    "createdAt" : "2026-04-25T12:00:58.140826500Z",
+    "updatedAt" : "2026-04-25T12:00:58.140826500Z"
+  }, {
+    "id" : 1000001,
+    "name" : "lll",
+    "description" : "kdlfk",
+    "ownerUsername" : "cdcdc",
+    "createdAt" : "2026-04-25T12:02:47.001703800Z",
+    "updatedAt" : "2026-04-25T12:02:47.001703800Z"
+  }, {
+    "id" : 1000002,
+    "name" : "iiii",
+    "description" : "dsds",
+    "ownerUsername" : "dsds",
+    "createdAt" : "2026-04-25T12:04:14.559597300Z",
+    "updatedAt" : "2026-04-25T12:04:14.559597300Z"
+  } ],
+  "runs" : [ ],
+  "runResults" : [ ]
+}

@@ -57,10 +57,8 @@ public class SnapshotValidator {
             requireMaxLength(experiment.getName(), 128, "Experiment.name too long");
             //Провеярем описание не длинее 512
             requireMaxLength(experiment.getDescription(), 512, "Experiment.description too long");
-            //Провеярем что укзан владелец
-            requireNonBlank(experiment.getOwnerUsername(), "Experiment.ownerUsername can't be empty");
-            //Длина имени не больше 128
-            requireMaxLength(experiment.getOwnerUsername(), 128, "Experiment.ownerUsername too long");
+            //Проверяем что ownerId не пуст и больше 0
+            requirePositive(experiment.getOwnerId(), "Experiment.ownerId");
             //Проверяем коректность дат
             validateDates(experiment.getCreatedAt(), experiment.getUpdatedAt(), "Experiment id=" + id);
         }

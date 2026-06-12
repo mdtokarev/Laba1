@@ -12,7 +12,7 @@ class ExperimentServiceTest {
     void shouldAddAndGetExperimentById() {
         var service = new ExperimentService();
 
-        var experiment = service.add("exp", "desc", "user");
+        var experiment = service.add("exp", "desc", 1);
 
         assertTrue(experiment.getId() > 0);
         assertSame(experiment, service.getById(experiment.getId()));
@@ -23,8 +23,8 @@ class ExperimentServiceTest {
     void shouldGenerateDifferentIdForDifferentExperiments() {
         var service = new ExperimentService();
 
-        var first = service.add("exp1", "desc1", "user1");
-        var second = service.add("exp2", "desc2", "user2");
+        var first = service.add("exp1", "desc1", 1);
+        var second = service.add("exp2", "desc2", 2);
 
         assertTrue(first.getId() > 0);
         assertTrue(second.getId() > 0);
@@ -36,8 +36,8 @@ class ExperimentServiceTest {
     void listShouldKeepAllExperiments() {
         var service = new ExperimentService();
 
-        var first = service.add("exp1", "desc1", "user1");
-        var second = service.add("exp2", "desc2", "user2");
+        var first = service.add("exp1", "desc1", 1);
+        var second = service.add("exp2", "desc2", 2);
 
         var experiments = service.list();
 
@@ -50,21 +50,21 @@ class ExperimentServiceTest {
 //    Проверяем что сервис корректно обновляет эксперимент
     void shouldUpdateExperiment() {
         var service = new ExperimentService();
-        var experiment = service.add("old", "desc", "user");
+        var experiment = service.add("old", "desc", 1);
 
-        var updated = service.update(experiment.getId(), "new", "new desc", "new user");
+        var updated = service.update(experiment.getId(), "new", "new desc");
 
         assertSame(experiment, updated);
         assertEquals("new", updated.getName());
         assertEquals("new desc", updated.getDescription());
-        assertEquals("new user", updated.getOwnerUsername());
+        assertEquals(1, updated.getOwnerId());
     }
 
     @Test
 //    Проверяем что сервис корректно удаляет эксперимент
     void shouldRemoveExperiment() {
         var service = new ExperimentService();
-        var experiment = service.add("exp", "desc", "user");
+        var experiment = service.add("exp", "desc", 1);
 
         service.remove(experiment.getId());
 
@@ -78,8 +78,8 @@ class ExperimentServiceTest {
     void shouldThrowWhenExperimentNotFound() {
         var service = new ExperimentService();
 
-        var first = service.add("exp1", "desc1", "user1");
-        var second = service.add("exp2", "desc2", "user2");
+        var first = service.add("exp1", "desc1", 1);
+        var second = service.add("exp2", "desc2", 2);
         var experiments = service.list();
 
         assertThrows(ValidationException.class, () -> service.getById(3));
@@ -90,8 +90,8 @@ class ExperimentServiceTest {
     void shouldThrowWhenRemovingMissingExperiment() {
         var service = new ExperimentService();
 
-        var first = service.add("exp1", "desc1", "user1");
-        var second = service.add("exp2", "desc2", "user2");
+        var first = service.add("exp1", "desc1", 1);
+        var second = service.add("exp2", "desc2", 2);
         var experiments = service.list();
 
         assertThrows(ValidationException.class, () -> service.remove(3));
